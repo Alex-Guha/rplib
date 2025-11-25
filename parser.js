@@ -216,7 +216,7 @@ function handleDetails(self, targetItem, viewName, parentComponentChain, swapMod
         // Add the new view to the nav menu view tracker
         self.viewStructures[viewName].push(targetItem.details);
 
-        self.views[targetItem.details] = parseDetail(targetItem.details, parentComponentChain, null);
+        self.views[targetItem.details] = parseComponentView(self, targetItem.details, parentComponentChain, null);
 
     } else if (targetItem.details && self.views[targetItem.details] && (swapModules == null || Object.keys(swapModules).length === 0)) {
         // The detail is generic and already exists
@@ -236,7 +236,7 @@ function handleDetails(self, targetItem, viewName, parentComponentChain, swapMod
 
         // overrides here is used to pass in any architecture-specific overrides for the component
         //     This is specifically used for abstract components
-        self.views[newDetailName] = parseDetail(targetItem.details, parentComponentChain, swapModules);
+        self.views[newDetailName] = parseComponentView(self, targetItem.details, parentComponentChain, swapModules);
 
         targetItem.details = newDetailName;
         self.viewStructures[viewName].push(newDetailName);

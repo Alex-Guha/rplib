@@ -28,7 +28,7 @@ export default function drawText(self, item, callback) {
         }
 
         // Handle latex differently than normal text
-        let label = textObject.latexText ? createLatexLabel(textObject) : createTextLabel(textObject, self.theme);
+        let label = textObject.latexText ? createLatexLabel(textObject, self.theme) : createTextLabel(textObject, self.theme);
 
         // Set the base position of the text, before relative positioning
         const textObjectX = item.x + (item.xSpacing ? item.xSpacing * (item.count - 1) / 2 : 0) + (textObject.xOffset ?? 0);
@@ -112,13 +112,13 @@ function ySide(pos, height, bbox, latex) {
 
 // Occasionally, the latex text is clipped on the left and right sides a little bit, not sure why.
 // Handled with overflow: visible for now, but it causes a little bit of positioning issues.
-function createLatexLabel(textObject) {
+function createLatexLabel(textObject, theme) {
     const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
     foreignObject.setAttribute('overflow', 'visible');
 
     const div = document.createElement('div');
     div.style.fontSize = '18px';
-    div.style.color = colorSwitch(textObject.color);
+    div.style.color = colorSwitch(textObject.color, theme);
 
     // The width and height of LaTeX needs to be set directly, so we need to measure it first
     div.style.display = 'inline-block';
@@ -143,9 +143,9 @@ function createLatexLabel(textObject) {
     return foreignObject;
 }
 
-function createTextLabel(textObject) {
+function createTextLabel(textObject, theme) {
     const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    textElement.setAttribute('fill', colorSwitch(textObject.color));
+    textElement.setAttribute('fill', colorSwitch(textObject.color, theme));
     textElement.textContent = textObject.text;
 
     return textElement;
