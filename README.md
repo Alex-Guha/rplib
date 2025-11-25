@@ -1,0 +1,1 @@
+This library revolves around managing an area on a web page.
