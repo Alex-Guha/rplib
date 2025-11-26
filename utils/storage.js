@@ -19,12 +19,12 @@ export function clearAbstractDefinitions(self) {
 }
 
 
-export function loadRootView(self, defaultView) {
-    const rootView = localStorage.getItem('rootView') || defaultView;
+export function loadRootView(self) {
+    const rootView = localStorage.getItem('rootView') || self.defaults.VIEW;
     self.rootView = rootView;
 
     self.views[rootView] = self.parseAbstractDefinition(rootView);
-    self.currentView = rootView;
+    self.setCurrentView(rootView);
 }
 
 export function saveRootView(self) {

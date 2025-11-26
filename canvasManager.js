@@ -7,41 +7,35 @@ import renderElements from "./renderView.js";
 import { loadAbstractDefinitions, saveAbstractDefinitions, clearAbstractDefinitions, loadRootView, saveRootView } from "./utils/storage.js";
 import { parseAbstractDefinitionFile } from "./parseAbstractFormat.js";
 
-import * as components from '../../standard_items/components.js';
-
-/*
-    views: {}, // Stores views so they don't need to be rebuilt every time
-    currentView: null, // Contains the name of the current view
-    currentArchitecture: null, // Contains the name of the current architecture
-    currentTheme: THEME, // This can also be found by looking up THEMES[settings['theme-selector'].state]
-    viewStructure: {}, // Used to display the view nav menu in the sidebar - This is only used for one thing and could be rewritten to generate the desired viewStructure on the fly instead of during parsing
-    architectures: {}, // Stores the intermediate architecture structures (so the file doesn't need to be parsed every time)
-*/
-
+// TODO Separate out a lower level RPDiagramManager that this inherits from
 export default class RPCanvasManager {
-    constructor(svgDOM, theme) {
-        this.svgDOM = svgDOM; // d3.select("#svg");
+    constructor(svgDOM, defaults, components, eventListenerTargets, elementCallback) {
+        this.svgDOM = svgDOM;
         this.canvasDOM = this.svgDOM.append("g").attr("id", "content");
-        this.currentView = null;
-        this.rootView = null; // currentArchitecture
-        this.abstractDefinitions = {}; // architectures. These objects may have a `properties` field, which text rendering uses to replace {{property}} placeholders.
-        this.views = {};
-        this.viewStructures = {};
-        this.theme = theme;
+
         this.components = components;
+        this.eventListenerTargets = eventListenerTargets;
+        this.elementCallback = elementCallback;
+
+        this.currentView = null;
+        this.rootView = null;
+
+        // Stores the intermediate architecture structures (so the file doesn't need to be parsed every time)
+        this.abstractDefinitions = {}; // These objects may have a `properties` field, which text rendering uses to replace {{property}} placeholders.
+        // Stores views so they don't need to be rebuilt every time
+        this.views = {};
+
+        // Used to display the view nav menu in the sidebar - This is only used for one thing and could be rewritten to generate the desired viewStructure on the fly instead of during parsing
+        this.viewStructures = {};
+
+        this.defaults = defaults;
+        this.theme = defaults.THEME; // Mandatory ARROW_COLOR, OPACITY, SHAPE_FILL, SHAPE_STROKE, TEXT_COLOR
+
         this.renderDelay = false;
         this.currentRenderId = 0;
-        this.defaults = {
-            ARROW: {
-                headSize: 10,
-                width: 2,
-            },
-            SHAPE: {
-                width: 100,
-                height: 200,
-                separation: 150
-            }
-        };
+
+        this.undoHistory = [];
+        this.redoHistory = [];
     };
 
     resetZoom = () => resetZoom(this.svgDOM, this.canvasDOM);
@@ -49,13 +43,55 @@ export default class RPCanvasManager {
     toggleRenderDelay = () => { this.renderDelay = !this.renderDelay; };
 
 
-    changeDefaults = (ARROW, SHAPE) => {
-        if (ARROW) {
-            this.defaults.ARROW = ARROW;
+    changeViews = (view) => {
+        let error = null;
+        if (!this.views[view]) {
+            if (this.abstractDefinitions[view]) {
+                this.views[view] = this.parseAbstractDefinition(view);
+                this.rootView = view;
+            } else if (this.components[view])
+                this.views[view] = this.parseComponentView(view);
+            else {
+                error = new Error(`Failed to Change Views\nView ${view} not found.\nFalling back to default.`);
+                view = this.defaults.VIEW;
+            }
+        } else if (this.abstractDefinitions[view]) {
+            this.rootView = view;
         }
-        if (SHAPE) {
-            this.defaults.SHAPE = SHAPE;
-        }
+        this.undoHistory.push(this.currentView);
+        this.redoHistory = [];
+        this.setCurrentView(view);
+        if (error) throw error;
+    };
+
+    undoViewChange = () => {
+        if (this.undoHistory.length <= 0) return false;
+        this.redoHistory.push(this.currentView);
+        const view = this.undoHistory.pop();
+        if (this.abstractDefinitions[view])
+            this.rootView = view;
+        this.setCurrentView(view);
+        return true;
+    };
+
+    redoViewChange = () => {
+        if (this.redoHistory.length <= 0) return false;
+        this.undoHistory.push(this.currentView);
+        const view = this.redoHistory.pop();
+        if (this.abstractDefinitions[view])
+            this.rootView = view;
+        this.setCurrentView(view);
+        return true;
+    };
+
+    // Any time the view changes, these other functions also occur
+    setCurrentView = (view) => {
+        this.currentView = view;
+        this.incrementRenderId();
+        this.clearCanvas();
+        this.resetZoom();
+        this.renderElements();
+        this.saveRootView();
     };
 
 
@@ -71,16 +107,16 @@ export default class RPCanvasManager {
 
 
     incrementRenderId = () => { this.currentRenderId++; };
-    renderElements = (eventListenerTargets, elementCallback) => {
+    renderElements = () => {
         const renderId = this.currentRenderId;
-        renderElements(this, renderId, eventListenerTargets, elementCallback);
+        renderElements(this, renderId, this.eventListenerTargets, this.elementCallback);
     };
 
 
     loadAbstractDefinitions = () => loadAbstractDefinitions(this);
     saveAbstractDefinitions = () => saveAbstractDefinitions(this);
-    clearAbstractDefinitions = () => clearAbstractDefinitions(this); // Expected to be followed by initializeApp block
-    loadRootView = (defaultView) => loadRootView(this, defaultView);
+    clearAbstractDefinitions = () => clearAbstractDefinitions(this);
+    loadRootView = () => loadRootView(this);
     saveRootView = () => saveRootView(this);
 
     parseAbstractDefinitionFile = async (filePath) => {
