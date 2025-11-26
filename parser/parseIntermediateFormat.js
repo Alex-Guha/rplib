@@ -1,3 +1,5 @@
+// TODO Update comments
+
 /**
 This file contains functions to parse json definitions of architectures provided by parseArchitecture.js.
 As such, it also contains functions to parse details and components, since they are used in architectures.

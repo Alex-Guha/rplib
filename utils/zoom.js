@@ -3,7 +3,12 @@ export default function resetZoom(rootDOM, canvasDOM) {
         .scaleExtent([0.25, 2])
         .on('zoom', (event) => (canvasDOM.attr('transform', event.transform)));
 
-    rootDOM.call(zoom).on("dblclick.zoom", null);
+    rootDOM.call(zoom)
+        .on("dblclick.zoom", null)
+        .on("touchstart.zoom", null)
+        .on("touchstart.zoom", function(event) {
+            d3.zoom().touchable(this, event);
+        }, { passive: true });
 
     // Function to apply the centered zoom transform
     const applyCenteredZoom = (firstChild) => {

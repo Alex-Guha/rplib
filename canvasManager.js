@@ -1,13 +1,18 @@
-import drawText from "./drawingUtils/text.js";
-import drawSubcomponent from "./drawingUtils/shapes.js";
-import drawConnection from "./drawingUtils/arrows.js";
-import { parseAbstractDefinition, parseComponentView } from "./parser.js";
+import drawText from "./utils/text.js";
+import drawSubcomponent from "./utils/shapes.js";
+import drawConnection from "./utils/arrows.js";
 import resetZoom from './utils/zoom.js';
 import renderElements from "./renderView.js";
-import { loadAbstractDefinitions, saveAbstractDefinitions, clearAbstractDefinitions, loadRootView, saveRootView } from "./utils/storage.js";
-import { parseAbstractDefinitionFile } from "./parseAbstractFormat.js";
 
-// TODO Separate out a lower level RPDiagramManager that this inherits from
+import { loadAbstractDefinitions, saveAbstractDefinitions, clearAbstractDefinitions, loadRootView, saveRootView } from "./utils/storage.js";
+
+import { parseAbstractDefinition, parseComponentView } from "./parser/parseIntermediateFormat.js";
+import { parseAbstractDefinitionFile, parseAbstractContent } from "./parser/parseAbstractFile.js";
+import serializeAbstractDefinition from "./parser/serializeAbstractFormat.js";
+
+
+// TODO Refactor 'settings' and 'references' to be handled as generics
+// TODO Replace 'properties' with 'placeholders'
 export default class RPCanvasManager {
     constructor(svgDOM, defaults, components, eventListenerTargets, elementCallback) {
         this.svgDOM = svgDOM;
@@ -22,10 +27,12 @@ export default class RPCanvasManager {
 
         // Stores the intermediate architecture structures (so the file doesn't need to be parsed every time)
         this.abstractDefinitions = {}; // These objects may have a `properties` field, which text rendering uses to replace {{property}} placeholders.
+
         // Stores views so they don't need to be rebuilt every time
         this.views = {};
 
-        // Used to display the view nav menu in the sidebar - This is only used for one thing and could be rewritten to generate the desired viewStructure on the fly instead of during parsing
+        // Used to display the view nav menu in the sidebar
+        // TODO This is only used for one thing and should be refactored out of the library. The wrapping app can generate the desired viewStructure on the fly instead of during parsing
         this.viewStructures = {};
 
         this.defaults = defaults;
@@ -102,10 +109,6 @@ export default class RPCanvasManager {
     drawConnection = (arrow, previousItem, item, callback) => drawConnection(this, arrow, previousItem, item, callback);
 
 
-    parseAbstractDefinition = (abstractName) => parseAbstractDefinition(this, abstractName);
-    parseComponentView = (viewName, parentComponentChain = [], overrides = null) => parseComponentView(this, viewName, parentComponentChain, overrides);
-
-
     incrementRenderId = () => { this.currentRenderId++; };
     renderElements = () => {
         const renderId = this.currentRenderId;
@@ -126,4 +129,10 @@ export default class RPCanvasManager {
             console.error('Error parsing architecture:', error);
         }
     };
+    parseAbstractContent = (content) => parseAbstractContent(content);
+    serializeAbstractDefinition = (abstractName, structure) => serializeAbstractDefinition(abstractName, structure);
+
+
+    parseAbstractDefinition = (abstractName) => parseAbstractDefinition(this, abstractName);
+    parseComponentView = (viewName, parentComponentChain = [], overrides = null) => parseComponentView(this, viewName, parentComponentChain, overrides);
 }
