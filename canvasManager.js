@@ -35,8 +35,12 @@ export default class RPCanvasManager {
         // TODO This is only used for one thing and should be refactored out of the library. The wrapping app can generate the desired viewStructure on the fly instead of during parsing
         this.viewStructures = {};
 
+        // TODO Refactor shape size and arrow size out (see todo in components.js), pass default view in as a parameter, and assume an inherent default theme
         this.defaults = defaults;
-        this.theme = defaults.THEME; // Mandatory ARROW_COLOR, OPACITY, SHAPE_FILL, SHAPE_STROKE, TEXT_COLOR
+
+        // Theme should be unified with the parent app, so it should always be passed in as a parameter
+        // Mandatory ARROW_COLOR, OPACITY, SHAPE_FILL, SHAPE_STROKE, TEXT_COLOR
+        this.theme = defaults.THEME;
 
         this.renderDelay = false;
         this.currentRenderId = 0;
@@ -72,34 +76,33 @@ export default class RPCanvasManager {
     };
 
     undoViewChange = () => {
-        if (this.undoHistory.length <= 0) return false;
+        if (this.undoHistory.length <= 0) return;
         this.redoHistory.push(this.currentView);
         const view = this.undoHistory.pop();
         if (this.abstractDefinitions[view])
             this.rootView = view;
         this.setCurrentView(view);
-        return true;
     };
 
     redoViewChange = () => {
-        if (this.redoHistory.length <= 0) return false;
+        if (this.redoHistory.length <= 0) return;
         this.undoHistory.push(this.currentView);
         const view = this.redoHistory.pop();
         if (this.abstractDefinitions[view])
             this.rootView = view;
         this.setCurrentView(view);
-        return true;
     };
 
     // Any time the view changes, these other functions also occur
-    setCurrentView = (view) => {
+    // XXX When the view stays the same but this is called, it would be better to iterate the existing DOM and update colors rather than redrawing everything
+    setCurrentView(view) {
         this.currentView = view;
-        this.incrementRenderId();
+        this.currentRenderId++;
         this.clearCanvas();
         this.resetZoom();
         this.renderElements();
         this.saveRootView();
-    };
+    }
 
 
     // `callback` (optional) should accept an instance of `item` and return true if the text should be skipped
@@ -108,12 +111,10 @@ export default class RPCanvasManager {
     // `callback` (optional) should accept an instance of `arrow` and return true if the arrow should be skipped
     drawConnection = (arrow, previousItem, item, callback) => drawConnection(this, arrow, previousItem, item, callback);
 
-
-    incrementRenderId = () => { this.currentRenderId++; };
-    renderElements = () => {
+    renderElements() {
         const renderId = this.currentRenderId;
         renderElements(this, renderId, this.eventListenerTargets, this.elementCallback);
-    };
+    }
 
 
     loadAbstractDefinitions = () => loadAbstractDefinitions(this);
