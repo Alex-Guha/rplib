@@ -68,7 +68,7 @@ function serializeStructure(structure, indent) {
         result += `${indentStr}properties:\n`;
         result += serializeProperties(structure.properties, indent + 4);
     }
-    if (structure.references) {
+    if (structure.references) { // XXX
         result += `${indentStr}references:\n`;
         result += serializeReferences(structure.references, indent + 4);
     }
@@ -76,6 +76,7 @@ function serializeStructure(structure, indent) {
     return result;
 }
 
+// XXX
 /**
  * Serializes references section
  * @param {Array} references Array of reference objects

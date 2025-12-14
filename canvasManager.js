@@ -11,16 +11,15 @@ import { parseAbstractDefinitionFile, parseAbstractContent } from "./parser/pars
 import serializeAbstractDefinition from "./parser/serializeAbstractFormat.js";
 
 
-// TODO Refactor 'settings' and 'references' to be handled as generics
-// TODO Replace 'properties' with 'placeholders'
+// TODO 1 Refactor 'settings' and 'references' to be handled as generics
 export default class RPCanvasManager {
-    constructor(svgDOM, defaults, components, eventListenerTargets, elementCallback) {
+    constructor(svgDOM, defaults, components, eventListenerTargets, elementToggleCallback) {
         this.svgDOM = svgDOM;
         this.canvasDOM = this.svgDOM.append("g").attr("id", "content");
 
         this.components = components;
         this.eventListenerTargets = eventListenerTargets;
-        this.elementCallback = elementCallback;
+        this.elementToggleCallback = elementToggleCallback;
 
         this.currentView = null;
         this.rootView = null;
@@ -35,7 +34,7 @@ export default class RPCanvasManager {
         // TODO This is only used for one thing and should be refactored out of the library. The wrapping app can generate the desired viewStructure on the fly instead of during parsing
         this.viewStructures = {};
 
-        // TODO Refactor shape size and arrow size out (see todo in components.js), pass default view in as a parameter, and assume an inherent default theme
+        // TODO? Refactor shape size and arrow size out (see todo in components.js), pass default view in as a parameter, and assume an inherent default theme
         this.defaults = defaults;
 
         // Theme should be unified with the parent app, so it should always be passed in as a parameter
@@ -113,7 +112,7 @@ export default class RPCanvasManager {
 
     renderElements() {
         const renderId = this.currentRenderId;
-        renderElements(this, renderId, this.eventListenerTargets, this.elementCallback);
+        renderElements(this, renderId, this.eventListenerTargets, this.elementToggleCallback);
     }
 
 

@@ -9,7 +9,7 @@ export default function drawConnection(self, arrow, previousItem, item, callback
     if (callback && callback(arrow)) return;
 
     // Makes these properties hierarchical. arrow > item > nonexistent
-    ['info', 'details', 'references'].forEach(key => {
+    ['info', 'details', 'references'].forEach(key => { // XXX
         if (arrow[key] || item[key]) {
             arrow[key] = key === 'references'
                 ? JSON.stringify(arrow[key] ?? item[key])
@@ -23,7 +23,7 @@ export default function drawConnection(self, arrow, previousItem, item, callback
         .attr('fill', self.theme.ARROW_COLOR)
         .attr('data-info', arrow.info)
         .attr('data-details', arrow.details)
-        .attr('data-references', arrow.references);
+        .attr('data-references', arrow.references); // XXX
 
     // Handle segmented arrows
     if (arrow.segments) {

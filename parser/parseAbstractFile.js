@@ -96,7 +96,7 @@ function parseAbstractSection(lines) {
         const parent = stack[stack.length - 1].obj;
 
         // Handle special sections
-        if (content === 'references:') {
+        if (content === 'references:') { // XXX
             const [refSection, newIndex] = parseReferencesSection(lines, i, indent);
             parent.references = refSection;
             i = newIndex;
@@ -135,6 +135,7 @@ function parseAbstractSection(lines) {
     return { [name]: abstract };
 }
 
+// XXX
 /**
  * Parse references section into an array of reference objects
  * @param {string[]} lines All lines in the file
@@ -232,6 +233,7 @@ function parsePropertiesSection(lines, startIndex, sectionIndent) {
     return [properties, i];
 }
 
+// XXX
 /**
  * Parse properties of a single reference
  * @param {string[]} lines All lines in the file

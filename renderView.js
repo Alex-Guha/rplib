@@ -1,5 +1,5 @@
 // Iterates through the view and renders each element
-export default function renderElements(self, renderId, eventListenerTargets, elementCallback) {
+export default function renderElements(self, renderId, eventListenerTargets, elementToggleCallback) {
     if (!self.views[self.currentView]) return;
     const elements = self.views[self.currentView].content;
     if (!elements) return;
@@ -25,17 +25,23 @@ export default function renderElements(self, renderId, eventListenerTargets, ele
             }
 
             // If the item is toggled off, skip rendering it
-            if (elementCallback && elementCallback(item)) return;
+            if (elementToggleCallback && elementToggleCallback(item)) return;
 
             // Calculate the position of the item only on the first render
             if (!item.calculated) {
-                if (item.references && typeof item.references !== 'string') item.references = JSON.stringify(item.references);
+                if (item.references && typeof item.references !== 'string') item.references = JSON.stringify(item.references); // XXX
 
                 // Set defaults if not specified
                 item.width = (item.width ?? self.defaults.SHAPE.width);
                 item.height = (item.height ?? self.defaults.SHAPE.height);
                 item.xSpacing = (item.xSpacing ?? (item.count ? self.defaults.SHAPE.width / 4 : 0));
                 item.ySpacing = (item.ySpacing ?? (item.count ? -self.defaults.SHAPE.height / 16 : 0));
+                /*
+                item.width = (item.width ?? 1) * self.defaults.SHAPE.width;
+                item.height = (item.height ?? 1) * self.defaults.SHAPE.height;
+                item.xSpacing = (item.xSpacing ?? (item.count ? 1 / 4 : 0)) * self.defaults.SHAPE.width;
+                item.ySpacing = (item.ySpacing ?? (item.count ? -1 / 16 : 0)) * self.defaults.SHAPE.height;
+                */
 
                 const previousAbsolutePosition = item.previous ? elements[item.previous] : { x: 0, y: 0 };
                 const currentAbsolutePosition = { x: previousAbsolutePosition.x, y: previousAbsolutePosition.y };

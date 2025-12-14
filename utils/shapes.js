@@ -22,7 +22,7 @@ export default function drawSubcomponent(self, item) {
 
         shape.attr('data-info', item.info)
             .attr('data-details', item.details)
-            .attr('data-references', item.references)
+            .attr('data-references', item.references) // XXX
             .attr('opacity', (1 - i * 0.1) * (item.opacity ?? self.theme.OPACITY))
             .attr('fill', self.theme.SHAPE_FILL)
             .attr('stroke', self.theme.SHAPE_STROKE);

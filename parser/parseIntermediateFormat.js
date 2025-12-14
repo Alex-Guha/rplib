@@ -16,7 +16,7 @@ export function parseAbstractDefinition(self, abstractName) {
     // The flat view structure
     const rootView = {
         settings: [],
-        references: [],
+        references: [], // TODO Refactor 'settings' and 'references' to be handled as generics, any number of which can occur before 'properties' (there is no 'content')
         properties: {},
         content: {},
     }
@@ -34,7 +34,7 @@ export function parseAbstractDefinition(self, abstractName) {
     // See architectures.js for what componentID and swapModules look like
     Object.entries(self.abstractDefinitions[abstractName]).forEach(([componentID, swapModules]) => {
         // If the component is 'settings' or 'references', we handle it differently
-        if (componentID === 'settings' || componentID === 'references') {
+        if (componentID === 'settings' || componentID === 'references') { // XXX
             // In this case, swapModules is actually the settings or references array
             rootView[componentID] = [...(rootView[componentID] ?? []), ...(swapModules ?? [])];
             return;
@@ -55,7 +55,7 @@ export function parseComponentView(self, viewName, parentComponentChain = [], ov
     //console.debug(`Building view ${viewName}`);
 
     // The flat view structure
-    const view = {
+    const view = { // XXX
         settings: [],
         references: [],
         content: {},
@@ -182,7 +182,7 @@ function buildComponent(self, componentID, viewDetails, viewName, parentComponen
             viewDetails.content[newItemID].details = targetComponent.details;
 
         // Same for info
-        if (targetComponent.info && !item.info)
+        if (targetComponent.info && !item.info)  // XXX
             viewDetails.content[newItemID].info = targetComponent.info;
 
         // Handle constructing details if specified and not already built
@@ -197,6 +197,7 @@ function buildComponent(self, componentID, viewDetails, viewName, parentComponen
         }
     });
 
+    // XXX
     // If the component had settings or references, we add them to the viewDetails' settings and references arrays.
     // These mimic 'sets' so that only new settings and references are added
     viewDetails.settings.push(
