@@ -1,3 +1,5 @@
+import d3 from 'd3';
+
 export default function resetZoom(rootDOM, canvasDOM) {
     const zoom = d3.zoom()
         .scaleExtent([0.25, 2])

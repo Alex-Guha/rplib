@@ -1,3 +1,5 @@
+import d3 from 'd3';
+
 // Fairly self explanatory
 export default function drawSubcomponent(self, item) {
     for (let i = (item.count || 1) - 1; i >= 0; i--) {

@@ -1,3 +1,5 @@
+import katex from 'katex';
+
 /**
  * Draws text relative the item.
  * The first word in the text's position property is the arrangement relative to the center of the item. 'top' is default.

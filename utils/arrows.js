@@ -1,3 +1,5 @@
+import d3 from 'd3';
+
 /**
  * Draws an arrow between previousItem and item.
  * If the arrow has segments, it draws each segment in the order they are defined, inferring positions and lengths based on the directions provided for each segment.

@@ -1,3 +1,5 @@
+import d3 from 'd3';
+
 // Iterates through the view and renders each element
 export default function renderElements(self, renderId, eventListenerTargets, elementToggleCallback) {
     if (!self.views[self.currentView]) return;
@@ -83,11 +85,11 @@ export default function renderElements(self, renderId, eventListenerTargets, ele
             // Draw the arrow(s). Unlike text, this is iterated over here because the arrows may have a different previous item specified than item does.
             if (Array.isArray(item.arrow) && item.arrow.length > 0) {
                 for (const arrow of item.arrow)
-                    self.drawConnection(arrow, (arrow.previous ? elements[arrow.previous] : elements[item.previous]), item, elementCallback);
-            } else if (item.arrow) self.drawConnection(item.arrow, (item.arrow.previous ? elements[item.arrow.previous] : elements[item.previous]), item, elementCallback);
+                    self.drawConnection(arrow, (arrow.previous ? elements[arrow.previous] : elements[item.previous]), item, elementToggleCallback);
+            } else if (item.arrow) self.drawConnection(item.arrow, (item.arrow.previous ? elements[item.arrow.previous] : elements[item.previous]), item, elementToggleCallback);
 
             // Draw the text
-            if (item.text) self.drawText(item, elementCallback);
+            if (item.text) self.drawText(item, elementToggleCallback);
 
             // Attach event listeners after rendering
             Object.entries(eventListenerTargets).forEach(([target, eventListener]) => {
