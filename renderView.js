@@ -31,7 +31,8 @@ export default function renderElements(self, renderId, eventListenerTargets, ele
 
             // Calculate the position of the item only on the first render
             if (!item.calculated) {
-                if (item.references && typeof item.references !== 'string') item.references = JSON.stringify(item.references); // XXX
+                // TODO How do you generalize this? Might have to make another callback...
+                if (item.references && typeof item.references !== 'string') item.references = JSON.stringify(item.references);
 
                 // Set defaults if not specified
                 item.width = (item.width ?? self.defaults.SHAPE.width);

@@ -1,4 +1,4 @@
-// LLM generated, it just works idk
+// TODO Write test cases
 
 // ==============================
 // custom text format -> JSON
@@ -96,9 +96,9 @@ function parseAbstractSection(lines) {
         const parent = stack[stack.length - 1].obj;
 
         // Handle special sections
-        if (content === 'references:') { // XXX
-            const [refSection, newIndex] = parseReferencesSection(lines, i, indent);
-            parent.references = refSection;
+        if (content === 'generics:') {
+            const [genSections, newIndex] = parseGenericSections(lines, i, indent);
+            Object.assign(parent, genSections);
             i = newIndex;
             continue;
         } else if (content === 'properties:') {
@@ -106,11 +106,18 @@ function parseAbstractSection(lines) {
             parent.properties = propsSection;
             i = newIndex;
             continue;
-        } else if (content.endsWith(':')) {
+        }
+
+        // Ensure content object exists for normal sections
+        if (!parent.content) {
+            parent.content = {};
+        }
+
+        if (content.endsWith(':')) {
             // This is a component with children
             const componentName = content.slice(0, -1).trim();
-            parent[componentName] = {};
-            stack.push({ obj: parent[componentName], indent });
+            parent.content[componentName] = {};
+            stack.push({ obj: parent.content[componentName], indent });
         } else if (content.includes(':')) {
             // This is a class component (className: componentName)
             const [className, componentName] = content.split(':').map(part => part.trim());
@@ -119,14 +126,14 @@ function parseAbstractSection(lines) {
             const hasChildren = (i + 1 < lines.length) && (countIndent(lines[i + 1]) > indent);
 
             if (hasChildren) {
-                parent[className] = [componentName, {}];
-                stack.push({ obj: parent[className][1], indent });
+                parent.content[className] = [componentName, {}];
+                stack.push({ obj: parent.content[className][1], indent });
             } else {
-                parent[className] = [componentName, null];
+                parent.content[className] = [componentName, null];
             }
         } else {
             // This is a simple component
-            parent[content] = null;
+            parent.content[content] = null;
         }
 
         i++;
@@ -135,24 +142,25 @@ function parseAbstractSection(lines) {
     return { [name]: abstract };
 }
 
-// XXX
+
 /**
- * Parse references section into an array of reference objects
+ * Parse generic (user-defined) sections into an object mapping section names to section bodies.
+ * Infers whether the contents should be an array or an object based on if the first item ends with a colon.
  * @param {string[]} lines All lines in the file
- * @param {number} startIndex Start index of the references section
- * @param {number} sectionIndent Indentation level of the references section
- * @returns {[Array, number]} Array of reference objects and the new line index
+ * @param {number} startIndex Start index of the generics section
+ * @param {number} sectionIndent Indentation level of the generics section
+ * @returns {[Object, number]} Section names mapped to their contents, and the new line index
  */
-function parseReferencesSection(lines, startIndex, sectionIndent) {
-    const references = [];
+function parseGenericSections(lines, startIndex, sectionIndent) {
+    const sections = {};
     let i = startIndex + 1;
 
     while (i < lines.length) {
         const line = lines[i];
         const indent = countIndent(line);
 
-        // If we encounter a line with same or less indent than the section,
-        // we've reached the end of the references section
+        // If we encounter a line with same or less indent than the generics section,
+        // we've reached the end of the generics section
         if (indent <= sectionIndent) {
             break;
         }
@@ -168,17 +176,93 @@ function parseReferencesSection(lines, startIndex, sectionIndent) {
                 title = title.slice(1, -1);
             }
 
-            // Parse reference properties
-            const [reference, newIndex] = parseReferenceProperties(lines, i + 1, indent);
-            reference.title = title;
-            references.push(reference);
+            // Parse generic section
+            const [section, newIndex] = parseGenericSectionContent(lines, i + 1, indent);
+            sections[title] = section;
             i = newIndex;
         } else {
             i++;
         }
     }
 
-    return [references, i];
+    return [sections, i];
+}
+
+/**
+ * Parse contents of a generic section
+ * @param {string[]} lines All lines in the file
+ * @param {number} startIndex Start index of the generic section
+ * @param {number} titleIndent Indentation level of the section title
+ * @returns {[Object, number]|[Array, number]} Section content object or array and the new line index
+ */
+function parseGenericSectionContent(lines, startIndex, titleIndent) {
+    let section;
+    let i = startIndex;
+
+    // TODO Not the best way to infer type, will fail if the first item doesn't have a colon but then any other one does
+    /* i.e.
+    title:
+        item
+        item:
+            stuff
+    */
+    if (lines[i].trim().includes(':'))
+        section = {};
+    else
+        section = [];
+    
+
+    while (i < lines.length) {
+        const line = lines[i];
+        const indent = countIndent(line);
+
+        if (indent <= titleIndent) {
+            break;
+        }
+
+        const content = line.trim();
+
+        // Check if contents are an object or an array
+        if (Array.isArray(section)) {
+            section.push(content);
+        } else if (typeof section === 'object') {
+            const [sectionName, ...valueParts] = content.split(':');
+            const sectionNameTrimmed = sectionName.trim();
+            let value = valueParts.join(':').trim();
+
+            if (value) {
+
+                // Handle quoted values
+                if (value.startsWith('"') && value.endsWith('"')) {
+                    value = value.slice(1, -1);
+
+                    // XXX Might be prone to issues, as this won't happen if `value` doesn't start and/or end with quotes
+                    // Check for multi-line strings
+                    if (i + 1 < lines.length && countIndent(lines[i + 1]) > indent) {
+                        const [multilineValue, newIndex] = parseMultilineString(lines, i + 1, indent);
+                        value += multilineValue;
+                        i = newIndex - 1; // -1 because we'll increment i at the end of the loop
+                    }
+
+                    // Process escape sequences in the string
+                    value = evaluateEscapeSequences(value);
+                    section[sectionNameTrimmed] = value;
+                } else {
+                    section[sectionNameTrimmed] = value;
+                }
+            } else {
+                const [sectionContent, newIndex] = parseGenericSectionContent(lines, i + 1, indent);
+                section[sectionNameTrimmed] = sectionContent;
+                i = newIndex - 1; // -1 because we'll increment i at the end of the loop
+            }
+        } else {
+            throw new Error('Invalid generic section type: ' + typeof section);
+        }
+
+        i++;
+    }
+
+    return [section, i];
 }
 
 /**
@@ -231,75 +315,6 @@ function parsePropertiesSection(lines, startIndex, sectionIndent) {
     }
 
     return [properties, i];
-}
-
-// XXX
-/**
- * Parse properties of a single reference
- * @param {string[]} lines All lines in the file
- * @param {number} startIndex Start index of the reference properties
- * @param {number} titleIndent Indentation level of the reference title
- * @returns {[Object, number]} Reference object and the new line index
- */
-function parseReferenceProperties(lines, startIndex, titleIndent) {
-    const reference = {};
-    let i = startIndex;
-
-    while (i < lines.length) {
-        const line = lines[i];
-        const indent = countIndent(line);
-
-        // If we encounter a line with same or less indent than the title,
-        // we've reached the end of this reference
-        if (indent <= titleIndent) {
-            break;
-        }
-
-        const content = line.trim();
-
-        // Check for property lines (property: value)
-        if (content.includes(':')) {
-            const [property, ...valueParts] = content.split(':');
-            const propName = property.trim();
-            let value = valueParts.join(':').trim();
-
-            // Handle quoted values
-            if (value.startsWith('"') && value.endsWith('"')) {
-                value = value.slice(1, -1);
-
-                // Check for multi-line strings
-                if (i + 1 < lines.length && countIndent(lines[i + 1]) > indent) {
-                    const [multilineValue, newIndex] = parseMultilineString(lines, i + 1, indent);
-                    value += multilineValue;
-                    i = newIndex - 1; // -1 because we'll increment i at the end of the loop
-                }
-
-                // Process escape sequences in the string
-                value = evaluateEscapeSequences(value);
-                reference[propName] = value;
-            } else if (propName === 'authors' || propName === 'refType') {
-                // Handle authors (will be parsed as array in the next iterations)
-                if (propName === 'authors') {
-                    reference[propName] = [];
-                } else {
-                    // For refType, just store the value
-                    reference[propName] = value;
-                }
-            } else {
-                reference[propName] = value;
-            }
-        } else if (indent > titleIndent + 4) {
-            // This is likely an array item (like an author)
-            // Find the parent property in the reference
-            if (reference.authors && indent > titleIndent + 4) {
-                reference.authors.push(content);
-            }
-        }
-
-        i++;
-    }
-
-    return [reference, i];
 }
 
 /**

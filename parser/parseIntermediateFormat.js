@@ -15,8 +15,6 @@ export function parseAbstractDefinition(self, abstractName) {
 
     // The flat view structure
     const rootView = {
-        settings: [],
-        references: [], // TODO Refactor 'settings' and 'references' to be handled as generics, any number of which can occur before 'properties' (there is no 'content')
         properties: {},
         content: {},
     }
@@ -30,20 +28,15 @@ export function parseAbstractDefinition(self, abstractName) {
     // This will contain pointers to detail views
     self.viewStructures[abstractName] = [];
 
+    Object.entries(self.abstractDefinitions[abstractName]).forEach(([sectionName, sectionContents]) => {
+        if (sectionName !== 'properties' && sectionName !== 'content') rootView[sectionName] = sectionContents;
+    });
+    Object.assign(rootView, self.abstractDefinitions[abstractName].generics ?? {});
+    Object.assign(rootView.properties, self.abstractDefinitions[abstractName].properties ?? {});
+
     // Stitch together content
     // See architectures.js for what componentID and swapModules look like
-    Object.entries(self.abstractDefinitions[abstractName]).forEach(([componentID, swapModules]) => {
-        // If the component is 'settings' or 'references', we handle it differently
-        if (componentID === 'settings' || componentID === 'references') { // XXX
-            // In this case, swapModules is actually the settings or references array
-            rootView[componentID] = [...(rootView[componentID] ?? []), ...(swapModules ?? [])];
-            return;
-        } else if (componentID === 'properties') {
-            rootView.properties = (swapModules ?? {});
-            return;
-        }
-
-        // Otherwise, we build the component (which gets added to rootView.content)
+    Object.entries(self.abstractDefinitions[abstractName].content).forEach(([componentID, swapModules]) => {
         buildComponent(self, componentID, rootView, abstractName, undefined, swapModules);
     });
     return rootView;
@@ -55,9 +48,7 @@ export function parseComponentView(self, viewName, parentComponentChain = [], ov
     //console.debug(`Building view ${viewName}`);
 
     // The flat view structure
-    const view = { // XXX
-        settings: [],
-        references: [],
+    const view = {
         content: {},
     }
 
@@ -181,9 +172,9 @@ function buildComponent(self, componentID, viewDetails, viewName, parentComponen
         if (targetComponent.details && !item.details)
             viewDetails.content[newItemID].details = targetComponent.details;
 
-        // Same for info
-        if (targetComponent.info && !item.info)  // XXX
-            viewDetails.content[newItemID].info = targetComponent.info;
+        // Same for descriptions
+        if (targetComponent.description && !item.description)
+            viewDetails.content[newItemID].description = targetComponent.description;
 
         // Handle constructing details if specified and not already built
         handleDetails(self, item, viewName, parentComponentChain, swapModules);
@@ -197,9 +188,26 @@ function buildComponent(self, componentID, viewDetails, viewName, parentComponen
         }
     });
 
-    // XXX
     // If the component had settings or references, we add them to the viewDetails' settings and references arrays.
     // These mimic 'sets' so that only new settings and references are added
+    Object.entries(self.components[cleanedComponentID]).forEach(([key, value]) => {
+        if (key !== 'content' && key !== 'details' && key !== 'description') {
+            if (Array.isArray(value)) {
+                if (!viewDetails[key])
+                    viewDetails[key] = value;
+                else if (!Array.isArray(viewDetails[key]))
+                    throw new Error(`Component property ${key} is an array, but viewDetails property is not.`);
+                else
+                    viewDetails[key] = viewDetails[key].concat(value);
+            } else {
+                if (viewDetails[key])
+                    Object.assign(viewDetails[key], value);
+                else
+                    viewDetails[key] = value;
+            }
+        }
+    });
+    /*
     viewDetails.settings.push(
         ...(self.components[cleanedComponentID].settings ?? []).filter(
             (newSetting) => !viewDetails.settings.some((existingSetting) => existingSetting.id === newSetting.id)
@@ -210,6 +218,7 @@ function buildComponent(self, componentID, viewDetails, viewName, parentComponen
             (newReference) => !viewDetails.references.some((existingReference) => existingReference.title === newReference.title)
         )
     );
+    */
 }
 
 function handleDetails(self, targetItem, viewName, parentComponentChain, swapModules) {

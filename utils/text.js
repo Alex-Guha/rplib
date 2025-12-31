@@ -39,9 +39,9 @@ export default function drawText(self, item, callback) {
         label.setAttribute('y', textObjectY);
 
         // Makes these properties hierarchical. textObject > item > nonexistent
-        ['info', 'details', 'references'].forEach(key => { // XXX
+        Object.keys(self.eventListenerTargets).forEach(key => {
             if (textObject[key] || item[key]) {
-                label.dataset[key] = key === 'references'
+                label.dataset[key] = key === 'references' // TODO ???
                     ? JSON.stringify(textObject[key] ?? item[key])
                     : textObject[key] ?? item[key];
             }

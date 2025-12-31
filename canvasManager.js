@@ -10,8 +10,6 @@ import { parseAbstractDefinition, parseComponentView } from "./parser/parseInter
 import { parseAbstractDefinitionFile, parseAbstractContent } from "./parser/parseAbstractFile.js";
 import serializeAbstractDefinition from "./parser/serializeAbstractFormat.js";
 
-
-// TODO 1 Refactor 'settings' and 'references' to be handled as generics
 export default class RPCanvasManager {
     constructor(svgDOM, defaults, components, eventListenerTargets, elementToggleCallback) {
         this.svgDOM = svgDOM;

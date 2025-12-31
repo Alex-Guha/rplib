@@ -22,12 +22,13 @@ export default function drawSubcomponent(self, item) {
                 return;
         }
 
-        shape.attr('data-info', item.info)
-            .attr('data-details', item.details)
-            .attr('data-references', item.references) // XXX
-            .attr('opacity', (1 - i * 0.1) * (item.opacity ?? self.theme.OPACITY))
+        shape.attr('opacity', (1 - i * 0.1) * (item.opacity ?? self.theme.OPACITY))
             .attr('fill', self.theme.SHAPE_FILL)
             .attr('stroke', self.theme.SHAPE_STROKE);
+        
+        Object.keys(self.eventListenerTargets).forEach(key => {
+            if (item[key]) shape.attr(`data-${key}`, item[key]);
+        });
         
         self.canvasDOM.append(() => shape.node());
     }

@@ -10,22 +10,21 @@ export default function drawConnection(self, arrow, previousItem, item, callback
     // Allows arrows to be togglable
     if (callback && callback(arrow)) return;
 
-    // Makes these properties hierarchical. arrow > item > nonexistent
-    ['info', 'details', 'references'].forEach(key => { // XXX
-        if (arrow[key] || item[key]) {
-            arrow[key] = key === 'references'
-                ? JSON.stringify(arrow[key] ?? item[key])
-                : arrow[key] ?? item[key];
-        }
-    });
-
     // Create a group for the arrow
     const arrowGroup = self.canvasDOM.append('g')
         .attr('stroke', self.theme.ARROW_COLOR)
-        .attr('fill', self.theme.ARROW_COLOR)
-        .attr('data-info', arrow.info)
-        .attr('data-details', arrow.details)
-        .attr('data-references', arrow.references); // XXX
+        .attr('fill', self.theme.ARROW_COLOR);
+
+    // Makes these properties hierarchical. arrow > item > nonexistent
+    Object.keys(self.eventListenerTargets).forEach(key => {
+        if (arrow[key] || item[key]) {
+            arrow[key] = key === 'references' // TODO ???
+                ? JSON.stringify(arrow[key] ?? item[key])
+                : arrow[key] ?? item[key];
+            
+            arrowGroup.attr(`data-${key}`, arrow[key]);
+        }
+    });
 
     // Handle segmented arrows
     if (arrow.segments) {
