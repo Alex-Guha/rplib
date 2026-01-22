@@ -1,4 +1,5 @@
 import d3 from 'd3';
+import attachListeners from './attachListeners.js';
 
 /**
  * Draws an arrow between previousItem and item.
@@ -13,18 +14,8 @@ export default function drawConnection(self, arrow, previousItem, item, callback
     // Create a group for the arrow
     const arrowGroup = self.canvasDOM.append('g')
         .attr('stroke', self.theme.ARROW_COLOR)
-        .attr('fill', self.theme.ARROW_COLOR);
-
-    // Makes these properties hierarchical. arrow > item > nonexistent
-    Object.keys(self.eventListenerTargets).forEach(key => {
-        if (arrow[key] || item[key]) {
-            arrow[key] = key === 'references' // TODO ???
-                ? JSON.stringify(arrow[key] ?? item[key])
-                : arrow[key] ?? item[key];
-            
-            arrowGroup.attr(`data-${key}`, arrow[key]);
-        }
-    });
+        .attr('fill', self.theme.ARROW_COLOR)
+        .attr(`id`, arrow.id);
 
     // Handle segmented arrows
     if (arrow.segments) {
@@ -37,6 +28,7 @@ export default function drawConnection(self, arrow, previousItem, item, callback
         const avgLengths = calculateAverageSegmentLength(arrow.segments, absoluteStartPosition, absoluteEndPosition);
 
         arrow.segments.forEach((segment, index) => {
+            segment.id = `${arrow.id}.segment_${index}`;
 
             if (index === 0) { // Start segment
                 // Multi segment arrows only have an arrowhead on the end segment, though this can be overridden
@@ -81,6 +73,12 @@ export default function drawConnection(self, arrow, previousItem, item, callback
 
         drawSegment(self, arrow, arrowGroup, absoluteStartPosition, absoluteEndPosition, callback);
     }
+
+    // Makes these properties inherited hierarchically. arrow > parent item > nonexistent
+    // XXX There may be a case where the text on an arrow segment doesn't inherit the parent properties because the inheritance happens here, after drawSegment for segments is called.
+    // This is currently automatically handled by the findHeirarchicalElementProperty in CanvasManager, which should check all the way back up the id chain for properties if an element doesn't have any.
+    // Regardless, this will need a test case to ensure it works as intended.
+    attachListeners(arrowGroup, arrow, item, self.eventListenerTargets);
 }
 
 // This may look like it has a lot of repeated switch statements, but without them it becomes impossible to manage
@@ -129,7 +127,15 @@ function drawSegment(self, segment, arrowGroup, absoluteStartPosition, absoluteE
     }
 
     // Draw text if it exists
-    if (segment.text) self.drawText(segment, callback);
+    if (Array.isArray(segment.text) && segment.text.length > 0) {
+        for (const text of segment.text) {
+            text.id = `${segment.id}.text_${segment.text.indexOf(text)}`;
+            self.drawText(text, segment, callback);
+        }
+    } else if (segment.text) {
+        segment.text.id = `${segment.id}.text`;
+        self.drawText(segment.text, segment, callback);
+    }
 }
 
 // Infers the average vertical and horizontal length for segments that do not have a length specified, based on the arrow start and end positions

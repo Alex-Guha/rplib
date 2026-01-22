@@ -1,9 +1,8 @@
-import d3 from 'd3';
-
 // Iterates through the view and renders each element
-export default function renderElements(self, renderId, eventListenerTargets, elementToggleCallback) {
+export default function renderElements(self, renderId, elementToggleCallback) {
     if (!self.views[self.currentView]) return;
     const elements = self.views[self.currentView].content;
+    //console.log(elements);
     if (!elements) return;
 
     let delay = 0;
@@ -31,8 +30,6 @@ export default function renderElements(self, renderId, eventListenerTargets, ele
 
             // Calculate the position of the item only on the first render
             if (!item.calculated) {
-                // TODO How do you generalize this? Might have to make another callback...
-                if (item.references && typeof item.references !== 'string') item.references = JSON.stringify(item.references);
 
                 // Set defaults if not specified
                 item.width = (item.width ?? self.defaults.SHAPE.width);
@@ -81,23 +78,39 @@ export default function renderElements(self, renderId, eventListenerTargets, ele
             }
 
             // Draw the shape. All items normally have a shape, but it's not enforced, in case a user wants to be creative
-            if (item.shape) self.drawSubcomponent(item);
+            if (item.shape) {
+                item.id = id;
+                self.drawSubcomponent(item);
+            }
 
-            // Draw the arrow(s). Unlike text, this is iterated over here because the arrows may have a different previous item specified than item does.
+            // Draw the arrow(s). This is iterated over here because the arrows may have a different previous item specified than item does.
             if (Array.isArray(item.arrow) && item.arrow.length > 0) {
-                for (const arrow of item.arrow)
+                for (const arrow of item.arrow) {
+                    arrow.id = `${id}.arrow_${item.arrow.indexOf(arrow)}`;
                     self.drawConnection(arrow, (arrow.previous ? elements[arrow.previous] : elements[item.previous]), item, elementToggleCallback);
-            } else if (item.arrow) self.drawConnection(item.arrow, (item.arrow.previous ? elements[item.arrow.previous] : elements[item.previous]), item, elementToggleCallback);
+                }
+            } else if (item.arrow) {
+                item.arrow.id = `${id}.arrow`;
+                self.drawConnection(item.arrow, (item.arrow.previous ? elements[item.arrow.previous] : elements[item.previous]), item, elementToggleCallback);
+            }
 
             // Draw the text
-            if (item.text) self.drawText(item, elementToggleCallback);
+            if (Array.isArray(item.text) && item.text.length > 0) {
+                for (const text of item.text) {
+                    text.id = `${id}.text_${item.text.indexOf(text)}`;
+                    self.drawText(text, item, elementToggleCallback);
+                }
+            } else if (item.text) {
+                item.text.id = `${id}.text`;
+                self.drawText(item.text, item, elementToggleCallback);
+            }
 
             // Attach event listeners after rendering
-            Object.entries(eventListenerTargets).forEach(([target, eventListener]) => {
-                self.canvasDOM.selectAll(`[data-${target}]`).each(function () {
-                    eventListener(d3.select(this));
-                });
-            });
+            // Object.entries(eventListenerTargets).forEach(([target, eventListener]) => {
+            //     self.canvasDOM.selectAll(`[data-${target}]`).each(function () {
+            //         eventListener(d3.select(this));
+            //     });
+            // });
         }, delay);
 
         delay += delayAmount;

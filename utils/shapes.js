@@ -1,4 +1,5 @@
 import d3 from 'd3';
+import attachListeners from './attachListeners.js';
 
 // Fairly self explanatory
 export default function drawSubcomponent(self, item) {
@@ -24,12 +25,12 @@ export default function drawSubcomponent(self, item) {
 
         shape.attr('opacity', (1 - i * 0.1) * (item.opacity ?? self.theme.OPACITY))
             .attr('fill', self.theme.SHAPE_FILL)
-            .attr('stroke', self.theme.SHAPE_STROKE);
-        
-        Object.keys(self.eventListenerTargets).forEach(key => {
-            if (item[key]) shape.attr(`data-${key}`, item[key]);
-        });
-        
+            .attr('stroke', self.theme.SHAPE_STROKE)
+            .attr(`id`, item.id);
+
+        // Unlike text and arrows, shapes are the roots of local property hierarchies
+        attachListeners(shape, item, null, self.eventListenerTargets);
+
         self.canvasDOM.append(() => shape.node());
     }
 }

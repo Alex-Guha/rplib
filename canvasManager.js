@@ -103,14 +103,36 @@ export default class RPCanvasManager {
 
 
     // `callback` (optional) should accept an instance of `item` and return true if the text should be skipped
-    drawText = (item, callback) => drawText(this, item, callback);
+    drawText = (textObject, item, callback) => drawText(this, textObject, item, callback);
     drawSubcomponent = (item) => drawSubcomponent(this, item);
     // `callback` (optional) should accept an instance of `arrow` and return true if the arrow should be skipped
     drawConnection = (arrow, previousItem, item, callback) => drawConnection(this, arrow, previousItem, item, callback);
 
     renderElements() {
         const renderId = this.currentRenderId;
-        renderElements(this, renderId, this.eventListenerTargets, this.elementToggleCallback);
+        renderElements(this, renderId, this.elementToggleCallback);
+    }
+
+    findHeirarchicalElementProperty = (id, property) => {
+        //console.log(`${id}, ${property}`);
+        //console.log(this.views[this.currentView].content);
+        const idSegments = id.split('.') ?? [];
+        while (idSegments.length > 0) {
+            let result = this.views[this.currentView].content;
+            idSegments.forEach((segment, index) => {
+                const match = segment.match(/^(.*)_(\d+)$/);
+                if (index > 0 && match) {
+                    result = result[match[1]][match[2]];
+                } else {
+                    result = result?.[segment];
+                }
+            });
+            if (result && Object.hasOwn(result, property)) {
+                return result[property];
+            }
+            idSegments.pop();
+        }
+        return this.views[this.currentView].content?.[id]?.[property];
     }
 
 

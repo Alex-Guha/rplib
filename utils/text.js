@@ -1,4 +1,5 @@
 import katex from 'katex';
+import attachListeners from './attachListeners.js';
 
 /**
  * Draws text relative the item.
@@ -6,76 +7,66 @@ import katex from 'katex';
  * The second is relative to the side of the item. 'center' is default.
  * Example: 'top-left', 'bottom-right', 'center'.
  */
-export default function drawText(self, item, callback) {
-    if (!Array.isArray(item.text))
-        item.text = [item.text];
+export default function drawText(self, textObject, item, callback) {
 
-    item.text.forEach(textObject => {
+    // Don't render the text if it's been toggled off. It is up to the user how this toggle should be checked.
+    if (callback && callback(textObject)) return;
 
-        // Don't render the text if it's been toggled off. It is up to the user how this toggle should be checked.
-        if (callback && callback(textObject)) return;
-
-        // Using architecture specific properties, replace any {{property}} placeholders in the text with the corresponding property.
-        const templateRegex = /\{\{([^}|]+)(\|([^}]+))?\}\}/g;
-        function replacePlaceholders(text, properties) {
-            return text.replace(templateRegex, (_, propName, _defaultPart, defaultValue) => {
-                return properties.hasOwnProperty(propName) ? properties[propName] : (defaultValue ?? '');
-            });
-        }
-        const properties = self.abstractDefinitions[self.rootView].properties;
-        if (textObject.latexText) {
-            textObject.latexText = replacePlaceholders(textObject.latexText, properties);
-        } else if (textObject.text) {
-            textObject.text = replacePlaceholders(textObject.text, properties);
-        }
-
-        // Handle latex differently than normal text
-        let label = textObject.latexText ? createLatexLabel(textObject, self.theme) : createTextLabel(textObject, self.theme);
-
-        // Set the base position of the text, before relative positioning
-        const textObjectX = item.x + (item.xSpacing ? item.xSpacing * (item.count - 1) / 2 : 0) + (textObject.xOffset ?? 0);
-        const textObjectY = item.y + (textObject.yOffset ?? 0);
-        label.setAttribute('x', textObjectX);
-        label.setAttribute('y', textObjectY);
-
-        // Makes these properties hierarchical. textObject > item > nonexistent
-        Object.keys(self.eventListenerTargets).forEach(key => {
-            if (textObject[key] || item[key]) {
-                label.dataset[key] = key === 'references' // TODO ???
-                    ? JSON.stringify(textObject[key] ?? item[key])
-                    : textObject[key] ?? item[key];
-            }
+    // Using architecture specific properties, replace any {{property}} placeholders in the text with the corresponding property.
+    const templateRegex = /\{\{([^}|]+)(\|([^}]+))?\}\}/g;
+    function replacePlaceholders(text, properties) {
+        return text.replace(templateRegex, (_, propName, _defaultPart, defaultValue) => {
+            return properties.hasOwnProperty(propName) ? properties[propName] : (defaultValue ?? '');
         });
+    }
+    const properties = self.abstractDefinitions[self.rootView].properties;
+    if (textObject.latexText) {
+        textObject.latexText = replacePlaceholders(textObject.latexText, properties);
+    } else if (textObject.text) {
+        textObject.text = replacePlaceholders(textObject.text, properties);
+    }
 
-        // Render the text
-        self.canvasDOM.append(() => (label));
+    // Handle latex differently than normal text
+    let label = textObject.latexText ? createLatexLabel(textObject, self.theme) : createTextLabel(textObject, self.theme);
+    label.setAttribute(`id`, textObject.id);
 
-        // After rendering, use the text's hieght and width to position it correctly relative to the item
-        setTimeout(() => {
-            const bbox = label.getBBox();
-            let adjustedX = textObjectX;
-            let adjustedY = textObjectY;
-            const height = item.height;
-            const width = item.width;
+    // Set the base position of the text, before relative positioning
+    const textObjectX = item.x + (item.xSpacing ? item.xSpacing * (item.count - 1) / 2 : 0) + (textObject.xOffset ?? 0);
+    const textObjectY = item.y + (textObject.yOffset ?? 0);
+    label.setAttribute('x', textObjectX);
+    label.setAttribute('y', textObjectY);
 
-            // top-center is default
-            // the first word is the arrangement relative to the center of the box
-            const relativeToCenter = textObject.position ? textObject.position.split('-')[0] : 'top';
-            // the second is relative to the side of the box that the text is on
-            const relativeToSide = textObject.position ? textObject.position.split('-')[1] || 'center' : 'center';
+    // Makes these properties inherited hierarchically. textObject > parent item/arrow > nonexistent
+    attachListeners(label, textObject, item, self.eventListenerTargets);
 
-            if (['right', 'left'].includes(relativeToCenter)) {
-                adjustedX += xAlign(relativeToCenter, width, bbox, textObject.latexText);
-                adjustedY += ySide(relativeToSide, height, bbox, textObject.latexText);
-            } else {
-                adjustedX += xSide(relativeToSide, width, bbox, textObject.latexText);
-                adjustedY += yAlign(relativeToCenter, height, bbox, textObject.latexText);
-            }
+    // Render the text
+    self.canvasDOM.append(() => (label));
 
-            label.setAttribute('x', adjustedX);
-            label.setAttribute('y', adjustedY);
-        }, 0);
-    });
+    // After rendering, use the text's hieght and width to position it correctly relative to the item
+    setTimeout(() => {
+        const bbox = label.getBBox();
+        let adjustedX = textObjectX;
+        let adjustedY = textObjectY;
+        const height = item.height;
+        const width = item.width;
+
+        // top-center is default
+        // the first word is the arrangement relative to the center of the box
+        const relativeToCenter = textObject.position ? textObject.position.split('-')[0] : 'top';
+        // the second is relative to the side of the box that the text is on
+        const relativeToSide = textObject.position ? textObject.position.split('-')[1] || 'center' : 'center';
+
+        if (['right', 'left'].includes(relativeToCenter)) {
+            adjustedX += xAlign(relativeToCenter, width, bbox, textObject.latexText);
+            adjustedY += ySide(relativeToSide, height, bbox, textObject.latexText);
+        } else {
+            adjustedX += xSide(relativeToSide, width, bbox, textObject.latexText);
+            adjustedY += yAlign(relativeToCenter, height, bbox, textObject.latexText);
+        }
+
+        label.setAttribute('x', adjustedX);
+        label.setAttribute('y', adjustedY);
+    }, 0);
 }
 
 // The +/-5 in any of these is just a little padding
