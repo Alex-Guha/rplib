@@ -19,7 +19,9 @@ export default function drawText(self, textObject, item, itemLayout, callback, i
         text.replace(templateRegex, (_, propName, _defaultPart, defaultValue) =>
             properties.hasOwnProperty(propName) ? properties[propName] : (defaultValue ?? '')
         );
-    const properties = self.store.abstractDefinitions[self.store.rootView].properties;
+    // Read from the resolved root view, not the upstream DSL definitions, so the renderer
+    // stays agnostic to whatever produced the intermediate format.
+    const properties = self.store.views[self.store.rootView]?.properties ?? {};
     const isLatex = !!textObject.latexText;
     const resolved = isLatex
         ? applyPlaceholders(textObject.latexText, properties)

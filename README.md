@@ -16,13 +16,91 @@ This library revolves around managing an area on a web page.
 
 3. ~~**Stop mutating input data during render.**~~ **Done (2026-05-10).** Layout is now computed by a pure `computeItemLayout` in `rplib/layout.js` and cached in `canvas.layouts[viewName][id]`. Parsed view content stays immutable. Renderer reads authored fields from items and computed fields from the layout map; `drawSubcomponent/drawConnection/drawText` take explicit `(item, layout, id)` and never write back. Arrow segments use a local segment-layout array instead of mutating segment objects. `text.js` resolves `{{placeholder}}` substitution into a local string. `attachListeners` no longer copies parent props onto the child — `findHeirarchicalElementProperty` is the read-time source of truth (fixes the arrow-segment text inheritance bug). Editing API: `canvas.invalidateLayout(viewName, ids?)` drops cached entries (descendants via `previous` are auto-invalidated). Re-themes still rebuild the DOM for now; switching to CSS variables so theme toggles become a single `style.setProperty` call is a separate, smaller follow-up.
 
-4. **Ship the parser separately, or not at all.** The abstract-definition DSL is Neural-Atlas-specific. A generic relational-positioning lib should accept the intermediate JSON and let apps bring their own DSL. Either move `parser/` to a separate package or document it as an optional sub-entry (`rplib/parser`) the app can opt into.
+4. ~~**Ship the parser separately, or not at all.**~~ **Reframed and done (2026-05-11).** The bundled DSL parser stays as the supported default; the boundary between it and the rest of the lib was already clean (only `canvasManager.changeViews` and `utils/storage.js` import from `parser/`). What changed: the canvas no longer hardcodes "parse abstract definitions and components on cache miss." It now takes an optional `resolveView(canvas, name) -> { view, isRoot } | null` adapter (6th constructor arg). A default resolver wires up the bundled parser and is used when none is passed, so existing callers keep working unchanged. Root-vs-detail tracking moved off `store.abstractDefinitions` and onto `store.rootViews` (Set), so the canvas no longer references DSL-specific state. One renderer leak fixed along the way: `utils/text.js` was reading `abstractDefinitions[rootView].properties` directly — now it reads `views[rootView].properties` from the resolved view (the parser already mirrors them there). The intermediate-format contract apps must produce is documented below.
 
 5. **The known leaks are all "app state living in the lib"** — `viewStructures`, `rootView`, `defaults.THEME`, `defaults.SHAPE` sizes. The existing TODOs in `canvasManager.js` already call this out. The fix is to invert the relationship: the lib has inherent defaults, accepts overrides per render, and never persists app concerns.
 
 6. **Render scheduling via `setTimeout` + `currentRenderId++`** (`renderView.js`) is fragile. A single `requestAnimationFrame`-based scheduler with an explicit cancellation token would be easier to reason about and test, and the "render delay" effect can live as a decorator on top.
 
 7. **Rename `findHeirarchicalElementProperty`** (`canvasManager.js`) before there are external consumers. Once it ships, the typo is forever.
+
+---
+
+## Intermediate format
+
+The canvas renders a resolved "view" — a flat JSON structure produced by either the bundled DSL parser or an app-provided `resolveView` adapter. If you want to skip the bundled DSL, your resolver returns objects shaped as follows.
+
+### Resolver
+
+```js
+resolveView(canvas, name) -> { view, isRoot } | null
+```
+
+- `view` — a resolved view object (shape below).
+- `isRoot` — `true` for top-level views (only roots own `properties` for placeholder substitution; the canvas tracks them in `store.rootViews` and updates `store.rootView`). `false` for detail/sub views.
+- Return `null` if the name is unknown; the canvas will fall back to `defaults.VIEW` and throw.
+
+Side effect: if your views reference detail views (via `item.details`), your resolver is responsible for populating `store.views[detailName]` for any such names it surfaces, and `store.viewStructures[name]` if you want sidebars to enumerate them. The bundled parser does this recursively; see `parser/parseIntermediateFormat.js#handleDetails`.
+
+### View
+
+```ts
+{
+  properties?: { [name: string]: string },   // root-only; used for {{name}} substitution in text
+  content: { [id: string]: Item },           // render order = insertion order
+  settings?: any[],                          // optional; passed through, treated as set-like by parser
+  references?: any[],                        // optional; same
+  // ...other top-level fields are passed through untouched
+}
+```
+
+### Item
+
+Authored fields the renderer reads:
+
+```ts
+{
+  shape?: 'rectangle' | 'parallelogram' | 'trapezoid' | 'triangle' | ...,
+  width?, height?, opacity?, count?, flipped?, shortSide?,
+
+  // Layout, relative to the `previous` item:
+  position?: 'above' | 'below' | 'left' | 'right' | 'left-top' | 'right-bottom' | ...,
+  previous?: string,                          // id of the anchor item
+  x?, y?, xSpacing?, ySpacing?, separation?,  // overrides; defaults come from `defaults.SHAPE`
+
+  // Text (zero or more):
+  text?:  { text: string,    position?, xOffset?, yOffset?, ... } | array,
+  latexText also supported via `latexText` on a text object,
+
+  // Arrows from `previous` to this item:
+  arrow?: ArrowObject | ArrowObject[],
+
+  // Navigation:
+  details?: string,                           // name of a detail view to drill into
+  description?: string, references?: any[],   // sidebar payloads
+}
+```
+
+The renderer never writes back to items. Derived layout lives separately in `canvas.layouts[viewName][id]` (`{ x, y, width, height, xSpacing, ySpacing }`), keyed off the item's id, and is invalidated via `canvas.invalidateLayout(viewName, ids?)`.
+
+### Minimal example
+
+```js
+const myView = {
+  properties: { modelName: 'GPT-4' },
+  content: {
+    A: { shape: 'rectangle', text: { text: '{{modelName}}' } },
+    B: { shape: 'rectangle', previous: 'A', position: 'right', arrow: {} },
+  },
+};
+
+const canvas = new RPCanvas(svg, defaults, /* components */ {}, listeners, toggleCb,
+  (canvas, name) => name === 'demo' ? { view: myView, isRoot: true } : null
+);
+canvas.changeViews('demo');
+```
+
+The bundled DSL on top of this is `parser/parseAbstractFile.js` (text → intermediate definitions) and `parser/parseIntermediateFormat.js` (definitions + components → resolved views). Apps that want their own DSL bypass both and feed resolved views directly.
 
 ---
 

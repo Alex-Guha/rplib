@@ -7,14 +7,31 @@ import ViewStore from "./viewStore.js";
 
 import { parseAbstractDefinition, parseComponentView } from "./parser/parseIntermediateFormat.js";
 
+// Default view resolver: uses the bundled DSL parser. Treats anything in
+// `store.abstractDefinitions` as a root view and anything in `canvas.components`
+// as a non-root (detail/component) view. Apps with their own DSL can pass a
+// custom resolver to the RPCanvas constructor that returns the intermediate
+// format directly. See rplib/README.md for the intermediate-format contract.
+function defaultResolveView(canvas, name) {
+    const store = canvas.store;
+    if (store.abstractDefinitions[name]) {
+        return { view: parseAbstractDefinition(store, canvas.components, name), isRoot: true };
+    }
+    if (canvas.components[name]) {
+        return { view: parseComponentView(store, canvas.components, name), isRoot: false };
+    }
+    return null;
+}
+
 export default class RPCanvas {
-    constructor(svgDOM, defaults, components, eventListenerTargets, elementToggleCallback) {
+    constructor(svgDOM, defaults, components, eventListenerTargets, elementToggleCallback, resolveView) {
         this.svgDOM = svgDOM;
         this.canvasDOM = this.svgDOM.append("g").attr("id", "content");
 
         this.components = components;
         this.eventListenerTargets = eventListenerTargets;
         this.elementToggleCallback = elementToggleCallback;
+        this.resolveView = resolveView ?? defaultResolveView;
 
         // Lifecycle hooks. Wrapping apps register via `on(name, fn)` instead of subclassing.
         // Supported events: 'beforeViewChange', 'afterViewChange'. Payload: { view, prevView }.
@@ -48,16 +65,18 @@ export default class RPCanvas {
         const store = this.store;
         let error = null;
         if (!store.views[view]) {
-            if (store.abstractDefinitions[view]) {
-                store.views[view] = parseAbstractDefinition(store, this.components, view);
-                store.rootView = view;
-            } else if (this.components[view])
-                store.views[view] = parseComponentView(store, this.components, view);
-            else {
+            const resolved = this.resolveView(this, view);
+            if (resolved) {
+                store.views[view] = resolved.view;
+                if (resolved.isRoot) {
+                    store.rootViews.add(view);
+                    store.rootView = view;
+                }
+            } else {
                 error = new Error(`Failed to Change Views\nView ${view} not found.\nFalling back to default.`);
                 view = this.defaults.VIEW;
             }
-        } else if (store.abstractDefinitions[view]) {
+        } else if (store.rootViews.has(view)) {
             store.rootView = view;
         }
         store.undoHistory.push(store.currentView);
@@ -71,7 +90,7 @@ export default class RPCanvas {
         if (store.undoHistory.length <= 0) return;
         store.redoHistory.push(store.currentView);
         const view = store.undoHistory.pop();
-        if (store.abstractDefinitions[view])
+        if (store.rootViews.has(view))
             store.rootView = view;
         this.setCurrentView(view);
     };
@@ -81,7 +100,7 @@ export default class RPCanvas {
         if (store.redoHistory.length <= 0) return;
         store.undoHistory.push(store.currentView);
         const view = store.redoHistory.pop();
-        if (store.abstractDefinitions[view])
+        if (store.rootViews.has(view))
             store.rootView = view;
         this.setCurrentView(view);
     };
