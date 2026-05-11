@@ -19,6 +19,10 @@ export default class RPCanvasManager {
         this.eventListenerTargets = eventListenerTargets;
         this.elementToggleCallback = elementToggleCallback;
 
+        // Lifecycle hooks. Wrapping apps register via `on(name, fn)` instead of subclassing.
+        // Supported events: 'beforeViewChange', 'afterViewChange'. Payload: { view, prevView }.
+        this.hooks = { beforeViewChange: [], afterViewChange: [] };
+
         this.currentView = null;
         this.rootView = null;
 
@@ -90,15 +94,29 @@ export default class RPCanvasManager {
         this.setCurrentView(view);
     };
 
+    on(eventName, fn) {
+        if (!this.hooks[eventName]) this.hooks[eventName] = [];
+        this.hooks[eventName].push(fn);
+    }
+
+    _fire(eventName, payload) {
+        const listeners = this.hooks[eventName];
+        if (!listeners) return;
+        for (const fn of listeners) fn(payload);
+    }
+
     // Any time the view changes, these other functions also occur
     // XXX When the view stays the same but this is called, it would be better to iterate the existing DOM and update colors rather than redrawing everything
     setCurrentView(view) {
+        const prevView = this.currentView;
+        this._fire('beforeViewChange', { view, prevView });
         this.currentView = view;
         this.currentRenderId++;
         this.clearCanvas();
         this.resetZoom();
         this.renderElements();
         this.saveRootView();
+        this._fire('afterViewChange', { view, prevView });
     }
 
 
