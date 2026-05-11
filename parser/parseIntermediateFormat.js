@@ -37,7 +37,7 @@ export function parseAbstractDefinition(self, abstractName) {
     // Stitch together content
     // See architectures.js for what componentID and swapModules look like
     Object.entries(self.abstractDefinitions[abstractName].content).forEach(([componentID, swapModules]) => {
-        buildComponent(self, componentID, rootView, abstractName, undefined, swapModules);
+        buildComponent(self, componentID, rootView, abstractName, undefined, swapModules?.content ?? null);
     });
     return rootView;
 }
@@ -116,7 +116,7 @@ function buildComponent(self, componentID, viewDetails, viewName, parentComponen
                         viewDetails,
                         viewName,
                         componentChain, // cycle tracker
-                        swapComponent.at(1) // `{ className: ['componentName', null] }` or `null`
+                        swapComponent.at(1)?.content ?? null // `{ className: ['componentName', null] }` or `null`
                     );
                     return;
                 }
