@@ -1,34 +1,36 @@
+import { parseAbstractDefinition } from "../parser/parseIntermediateFormat.js";
+
 // Only appends saved definitions, doesn't overwrite ones read from file at startup
-export function loadAbstractDefinitions(self) {
+export function loadAbstractDefinitions(canvas) {
     const savedDefinitions = JSON.parse(localStorage.getItem('abstractDefinitions')) || {};
     Object.keys(savedDefinitions).forEach(key => {
-        if (!self.abstractDefinitions[key]) {
-            self.abstractDefinitions[key] = savedDefinitions[key];
+        if (!canvas.store.abstractDefinitions[key]) {
+            canvas.store.abstractDefinitions[key] = savedDefinitions[key];
         }
     });
 }
 
-export function saveAbstractDefinitions(self) {
-    localStorage.setItem('abstractDefinitions', JSON.stringify(self.abstractDefinitions));
+export function saveAbstractDefinitions(canvas) {
+    localStorage.setItem('abstractDefinitions', JSON.stringify(canvas.store.abstractDefinitions));
 }
 
-export function clearAbstractDefinitions(self) {
+export function clearAbstractDefinitions(canvas) {
     localStorage.removeItem('abstractDefinitions');
     localStorage.removeItem('rootView');
-    self.viewStructures = {};
+    canvas.store.viewStructures = {};
 }
 
 
-export function loadRootView(self) {
-    const rootView = localStorage.getItem('rootView') || self.defaults.VIEW;
-    self.rootView = rootView;
+export function loadRootView(canvas) {
+    const rootView = localStorage.getItem('rootView') || canvas.defaults.VIEW;
+    canvas.store.rootView = rootView;
 
-    self.views[rootView] = self.parseAbstractDefinition(rootView);
-    self.setCurrentView(rootView);
+    canvas.store.views[rootView] = parseAbstractDefinition(canvas.store, canvas.components, rootView);
+    canvas.setCurrentView(rootView);
 }
 
-export function saveRootView(self) {
-    saveAbstractDefinitions(self);
+export function saveRootView(canvas) {
+    saveAbstractDefinitions(canvas);
 
-    localStorage.setItem('rootView', self.rootView);
+    localStorage.setItem('rootView', canvas.store.rootView);
 }

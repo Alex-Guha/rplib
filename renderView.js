@@ -1,7 +1,7 @@
 // Iterates through the view and renders each element
 export default function renderElements(self, renderId, elementToggleCallback) {
-    if (!self.views[self.currentView]) return;
-    const elements = self.views[self.currentView].content;
+    if (!self.store.views[self.store.currentView]) return;
+    const elements = self.store.views[self.store.currentView].content;
     //console.log(elements);
     if (!elements) return;
 

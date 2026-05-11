@@ -19,7 +19,7 @@ export default function drawText(self, textObject, item, callback) {
             return properties.hasOwnProperty(propName) ? properties[propName] : (defaultValue ?? '');
         });
     }
-    const properties = self.abstractDefinitions[self.rootView].properties;
+    const properties = self.store.abstractDefinitions[self.store.rootView].properties;
     if (textObject.latexText) {
         textObject.latexText = replacePlaceholders(textObject.latexText, properties);
     } else if (textObject.text) {
