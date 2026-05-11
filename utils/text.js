@@ -2,53 +2,53 @@ import katex from 'katex';
 import attachListeners from './attachListeners.js';
 
 /**
- * Draws text relative the item.
+ * Draws text relative to the item's layout.
  * The first word in the text's position property is the arrangement relative to the center of the item. 'top' is default.
  * The second is relative to the side of the item. 'center' is default.
  * Example: 'top-left', 'bottom-right', 'center'.
  */
-export default function drawText(self, textObject, item, callback) {
+export default function drawText(self, textObject, item, itemLayout, callback, id) {
 
     // Don't render the text if it's been toggled off. It is up to the user how this toggle should be checked.
     if (callback && callback(textObject)) return;
 
-    // Using architecture specific properties, replace any {{property}} placeholders in the text with the corresponding property.
+    // Using architecture specific properties, replace any {{property}} placeholders with the corresponding property.
+    // Resolved into a local string; the parsed textObject is not mutated.
     const templateRegex = /\{\{([^}|]+)(\|([^}]+))?\}\}/g;
-    function replacePlaceholders(text, properties) {
-        return text.replace(templateRegex, (_, propName, _defaultPart, defaultValue) => {
-            return properties.hasOwnProperty(propName) ? properties[propName] : (defaultValue ?? '');
-        });
-    }
+    const applyPlaceholders = (text, properties) =>
+        text.replace(templateRegex, (_, propName, _defaultPart, defaultValue) =>
+            properties.hasOwnProperty(propName) ? properties[propName] : (defaultValue ?? '')
+        );
     const properties = self.store.abstractDefinitions[self.store.rootView].properties;
-    if (textObject.latexText) {
-        textObject.latexText = replacePlaceholders(textObject.latexText, properties);
-    } else if (textObject.text) {
-        textObject.text = replacePlaceholders(textObject.text, properties);
-    }
+    const isLatex = !!textObject.latexText;
+    const resolved = isLatex
+        ? applyPlaceholders(textObject.latexText, properties)
+        : (textObject.text ? applyPlaceholders(textObject.text, properties) : '');
 
     // Handle latex differently than normal text
-    let label = textObject.latexText ? createLatexLabel(textObject, self.theme) : createTextLabel(textObject, self.theme);
-    label.setAttribute(`id`, textObject.id);
+    const label = isLatex ? createLatexLabel(resolved, textObject, self.theme) : createTextLabel(resolved, textObject, self.theme);
+    label.setAttribute('id', id);
 
     // Set the base position of the text, before relative positioning
-    const textObjectX = item.x + (item.xSpacing ? item.xSpacing * (item.count - 1) / 2 : 0) + (textObject.xOffset ?? 0);
-    const textObjectY = item.y + (textObject.yOffset ?? 0);
+    const textObjectX = itemLayout.x + (itemLayout.xSpacing ? itemLayout.xSpacing * ((item.count ?? 1) - 1) / 2 : 0) + (textObject.xOffset ?? 0);
+    const textObjectY = itemLayout.y + (textObject.yOffset ?? 0);
     label.setAttribute('x', textObjectX);
     label.setAttribute('y', textObjectY);
 
-    // Makes these properties inherited hierarchically. textObject > parent item/arrow > nonexistent
+    // Property inheritance is handled at read time by findHeirarchicalElementProperty;
+    // this call only attaches DOM listeners, no longer mutates objects.
     attachListeners(label, textObject, item, self.eventListenerTargets);
 
     // Render the text
     self.canvasDOM.append(() => (label));
 
-    // After rendering, use the text's hieght and width to position it correctly relative to the item
+    // After rendering, use the text's height and width to position it correctly relative to the item
     setTimeout(() => {
         const bbox = label.getBBox();
         let adjustedX = textObjectX;
         let adjustedY = textObjectY;
-        const height = item.height;
-        const width = item.width;
+        const height = itemLayout.height;
+        const width = itemLayout.width;
 
         // top-center is default
         // the first word is the arrangement relative to the center of the box
@@ -57,11 +57,11 @@ export default function drawText(self, textObject, item, callback) {
         const relativeToSide = textObject.position ? textObject.position.split('-')[1] || 'center' : 'center';
 
         if (['right', 'left'].includes(relativeToCenter)) {
-            adjustedX += xAlign(relativeToCenter, width, bbox, textObject.latexText);
-            adjustedY += ySide(relativeToSide, height, bbox, textObject.latexText);
+            adjustedX += xAlign(relativeToCenter, width, bbox, isLatex);
+            adjustedY += ySide(relativeToSide, height, bbox, isLatex);
         } else {
-            adjustedX += xSide(relativeToSide, width, bbox, textObject.latexText);
-            adjustedY += yAlign(relativeToCenter, height, bbox, textObject.latexText);
+            adjustedX += xSide(relativeToSide, width, bbox, isLatex);
+            adjustedY += yAlign(relativeToCenter, height, bbox, isLatex);
         }
 
         label.setAttribute('x', adjustedX);
@@ -105,7 +105,7 @@ function ySide(pos, height, bbox, latex) {
 
 // Occasionally, the latex text is clipped on the left and right sides a little bit, not sure why.
 // Handled with overflow: visible for now, but it causes a little bit of positioning issues.
-function createLatexLabel(textObject, theme) {
+function createLatexLabel(latexText, textObject, theme) {
     const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
     foreignObject.setAttribute('overflow', 'visible');
 
@@ -118,7 +118,7 @@ function createLatexLabel(textObject, theme) {
     div.style.visibility = 'hidden';
     div.style.whiteSpace = 'nowrap';
     document.body.appendChild(div);
-    katex.render(textObject.latexText, div, { throwOnError: true });
+    katex.render(latexText, div, { throwOnError: true });
     const { width, height } = div.getBoundingClientRect();
     document.body.removeChild(div);
 
@@ -136,10 +136,10 @@ function createLatexLabel(textObject, theme) {
     return foreignObject;
 }
 
-function createTextLabel(textObject, theme) {
+function createTextLabel(text, textObject, theme) {
     const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     textElement.setAttribute('fill', colorSwitch(textObject.color, theme));
-    textElement.textContent = textObject.text;
+    textElement.textContent = text;
 
     return textElement;
 }

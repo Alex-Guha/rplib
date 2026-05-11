@@ -171,11 +171,22 @@ function buildComponent(store, components, componentID, viewDetails, viewName, p
         if (key !== 'content' && key !== 'details' && key !== 'description') {
             if (Array.isArray(value)) {
                 if (!viewDetails[key])
-                    viewDetails[key] = value;
+                    viewDetails[key] = [...value];
                 else if (!Array.isArray(viewDetails[key]))
                     throw new Error(`Component property ${key} is an array, but viewDetails property is not.`);
-                else
-                    viewDetails[key] = viewDetails[key].concat(value);
+                else {
+                    // Set-like merge: skip entries whose `id` already exists. Falls back to
+                    // reference-equality for primitives or entries without an id.
+                    const existingIds = new Set(
+                        viewDetails[key].map(entry => entry && typeof entry === 'object' ? entry.id : entry)
+                    );
+                    for (const entry of value) {
+                        const key2 = entry && typeof entry === 'object' ? entry.id : entry;
+                        if (key2 !== undefined && existingIds.has(key2)) continue;
+                        viewDetails[key].push(entry);
+                        if (key2 !== undefined) existingIds.add(key2);
+                    }
+                }
             } else {
                 if (viewDetails[key])
                     Object.assign(viewDetails[key], value);

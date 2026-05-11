@@ -3,10 +3,13 @@ import attachListeners from './attachListeners.js';
 
 /**
  * Draws an arrow between previousItem and item.
- * If the arrow has segments, it draws each segment in the order they are defined, inferring positions and lengths based on the directions provided for each segment.
+ * If the arrow has segments, it draws each segment in the order they are defined,
+ * inferring positions and lengths based on the directions provided for each segment.
+ * The parsed arrow/segment objects are never mutated; computed values flow through
+ * a local segment-layout array.
 */
-export default function drawConnection(self, arrow, previousItem, item, callback) {
-    if (!previousItem) return;
+export default function drawConnection(self, arrow, previousItem, prevLayout, item, itemLayout, callback, id) {
+    if (!previousItem || !prevLayout) return;
 
     // Allows arrows to be togglable
     if (callback && callback(arrow)) return;
@@ -15,131 +18,121 @@ export default function drawConnection(self, arrow, previousItem, item, callback
     const arrowGroup = self.canvasDOM.append('g')
         .attr('stroke', self.theme.ARROW_COLOR)
         .attr('fill', self.theme.ARROW_COLOR)
-        .attr(`id`, arrow.id);
+        .attr(`id`, id);
 
     // Handle segmented arrows
     if (arrow.segments) {
-        arrow.segments.forEach(segment => {
-            segment.direction = segment.direction ?? inferArrowDirection(item.position);
-        });
+        const directions = arrow.segments.map(s => s.direction ?? inferArrowDirection(item.position));
 
-        const absoluteStartPosition = calculateAbsoluteStartPosition(arrow.segments.at(0), previousItem);
-        const absoluteEndPosition = calculateAbsoluteEndPosition(arrow.segments.at(-1), item);
-        const avgLengths = calculateAverageSegmentLength(arrow.segments, absoluteStartPosition, absoluteEndPosition);
+        const startEdge = arrow.segments[0];
+        const endEdge = arrow.segments.at(-1);
+        const absoluteStartPosition = calculateAbsoluteStartPosition(
+            { direction: directions[0], xOffset: startEdge.xOffset, yOffset: startEdge.yOffset },
+            previousItem, prevLayout
+        );
+        const absoluteEndPosition = calculateAbsoluteEndPosition(
+            { direction: directions.at(-1), xOffset: endEdge.xOffset, yOffset: endEdge.yOffset },
+            item, itemLayout
+        );
+        const avgLengths = calculateAverageSegmentLength(arrow.segments, directions, absoluteStartPosition, absoluteEndPosition);
+
+        const segLayouts = new Array(arrow.segments.length);
 
         arrow.segments.forEach((segment, index) => {
-            segment.id = `${arrow.id}.segment_${index}`;
+            const segId = `${id}.segment_${index}`;
+            const direction = directions[index];
+            const isFirst = index === 0;
+            const isLast = index === arrow.segments.length - 1;
+            const noHead = isLast ? (segment.noHead ?? false) : (segment.noHead ?? true);
+            const extraLength = isLast ? 0 : (segment.extraLength ?? avgLengths[direction]);
 
-            if (index === 0) { // Start segment
-                // Multi segment arrows only have an arrowhead on the end segment, though this can be overridden
-                segment.noHead = (segment.noHead ?? true);
-
-                // If the segment doesn't have a manual extraLength, give it the average length
-                segment.extraLength = segment.extraLength ?? avgLengths[segment.direction ?? 'right'];
-
-                // Since extraLength is used for the length of the segment, we pass the start position of the segment as the end to cancel out length calculations
-                drawSegment(self, segment, arrowGroup, absoluteStartPosition, absoluteStartPosition, callback);
-
-            } else if (index < (arrow.segments.length - 1)) { // Middle segments
-                segment.noHead = (segment.noHead ?? true);
-
-                // Calculate the absolute start position of the segment based on the start position and length of the previous segment (since we aren't directly storing the end positions)
-                const segmentAbsoluteStartPosition = {
-                    x: arrow.segments[index - 1].x + arrow.segments[index - 1].width,
-                    y: arrow.segments[index - 1].y + arrow.segments[index - 1].height
-                };
-
-                segment.extraLength = segment.extraLength ?? avgLengths[segment.direction ?? 'right'];
-                drawSegment(self, segment, arrowGroup, segmentAbsoluteStartPosition, segmentAbsoluteStartPosition, callback);
-
-            } else { // End segment
-                const segmentAbsoluteStartPosition = {
-                    x: arrow.segments[index - 1].x + arrow.segments[index - 1].width,
-                    y: arrow.segments[index - 1].y + arrow.segments[index - 1].height
-                };
-
-                // An override for end position calculation in drawSegment.
-                // We don't need to use extraLength for the last segment, since it locks onto the target by using absoluteEndPosition.
-                segment.end = true;
-                drawSegment(self, segment, arrowGroup, segmentAbsoluteStartPosition, absoluteEndPosition, callback);
+            let startPos;
+            let endPosForCalc;
+            if (isFirst) {
+                startPos = absoluteStartPosition;
+                // Start segment uses extraLength for its length; pass startPos as end to cancel diff math.
+                endPosForCalc = absoluteStartPosition;
+            } else {
+                const prevSeg = segLayouts[index - 1];
+                startPos = { x: prevSeg.x + prevSeg.width, y: prevSeg.y + prevSeg.height };
+                endPosForCalc = isLast ? absoluteEndPosition : startPos;
             }
+
+            const segLayout = computeSegmentLayout(direction, startPos, endPosForCalc, extraLength, isLast);
+            segLayouts[index] = segLayout;
+            drawSegment(self, segment, segLayout, noHead, arrowGroup, segId, callback);
         });
 
     } else {
         // Handle single arrows
-        arrow.direction = arrow.direction ?? inferArrowDirection(item.position);
-        const absoluteStartPosition = calculateAbsoluteStartPosition(arrow, previousItem);
-        const absoluteEndPosition = calculateAbsoluteEndPosition(arrow, item);
+        const direction = arrow.direction ?? inferArrowDirection(item.position);
+        const startSpec = { direction, xOffset: arrow.xOffset, yOffset: arrow.yOffset };
+        const absoluteStartPosition = calculateAbsoluteStartPosition(startSpec, previousItem, prevLayout);
+        const absoluteEndPosition = calculateAbsoluteEndPosition(startSpec, item, itemLayout);
+        const layout = computeSegmentLayout(direction, absoluteStartPosition, absoluteEndPosition, 0, true);
 
-        drawSegment(self, arrow, arrowGroup, absoluteStartPosition, absoluteEndPosition, callback);
+        drawSegment(self, arrow, layout, arrow.noHead ?? false, arrowGroup, id, callback);
     }
 
-    // Makes these properties inherited hierarchically. arrow > parent item > nonexistent
-    // XXX There may be a case where the text on an arrow segment doesn't inherit the parent properties because the inheritance happens here, after drawSegment for segments is called.
-    // This is currently automatically handled by the findHeirarchicalElementProperty in CanvasManager, which should check all the way back up the id chain for properties if an element doesn't have any.
-    // Regardless, this will need a test case to ensure it works as intended.
+    // Property inheritance is handled at read time by findHeirarchicalElementProperty;
+    // this call only attaches DOM listeners, no longer mutates the arrow object.
     attachListeners(arrowGroup, arrow, item, self.eventListenerTargets);
 }
 
-// This may look like it has a lot of repeated switch statements, but without them it becomes impossible to manage
-
-// Draws the arrow segment
-function drawSegment(self, segment, arrowGroup, absoluteStartPosition, absoluteEndPosition, callback) {
-    segment.x = absoluteStartPosition.x;
-    segment.y = absoluteStartPosition.y;
-
-    // Calculates the length of the arrow (which is stored in height and width because drawText uses these variables).
-    switch (segment.direction) {
+// Computes a fresh segment-layout entry. Pure — doesn't mutate the segment.
+function computeSegmentLayout(direction, startPos, endPos, extraLength, isEnd) {
+    let width = 0;
+    let height = 0;
+    const extra = isEnd ? 0 : (extraLength ?? 0);
+    switch (direction) {
         case 'up':
-            segment.width = 0;
-            segment.height = Math.min(absoluteEndPosition.y - absoluteStartPosition.y, 0) - (segment.end ? 0 : (segment.extraLength ?? 0));
+            height = Math.min(endPos.y - startPos.y, 0) - extra;
             break;
-
         case 'down':
-            segment.width = 0;
-            segment.height = Math.max(absoluteEndPosition.y - absoluteStartPosition.y, 0) + (segment.end ? 0 : (segment.extraLength ?? 0));
+            height = Math.max(endPos.y - startPos.y, 0) + extra;
             break;
-
         case 'left':
-            segment.width = Math.min(absoluteEndPosition.x - absoluteStartPosition.x, 0) - (segment.end ? 0 : (segment.extraLength ?? 0));
-            segment.height = 0;
+            width = Math.min(endPos.x - startPos.x, 0) - extra;
             break;
-
         default: // right
-            segment.width = Math.max(absoluteEndPosition.x - absoluteStartPosition.x, 0) + (segment.end ? 0 : (segment.extraLength ?? 0));
-            segment.height = 0;
+            width = Math.max(endPos.x - startPos.x, 0) + extra;
             break;
     }
+    return { x: startPos.x, y: startPos.y, width, height };
+}
 
-    // Draw the line
+// Draws the arrow segment using its precomputed layout.
+function drawSegment(self, segment, layout, noHead, arrowGroup, segId, callback) {
     arrowGroup.append('line')
-        .attr('x1', segment.x)
-        .attr('y1', segment.y)
-        .attr('x2', segment.x + segment.width)
-        .attr('y2', segment.y + segment.height)
+        .attr('x1', layout.x)
+        .attr('y1', layout.y)
+        .attr('x2', layout.x + layout.width)
+        .attr('y2', layout.y + layout.height)
         .attr('stroke-width', self.defaults.ARROW.width);
 
     // Draw the arrowhead
-    if (!(segment.noHead ?? false)) {
-        const endxy = segment.reversed ? { x: segment.x, y: segment.y } : { x: segment.width + segment.x, y: segment.height + segment.y };
-        const angle = segment.reversed ? Math.atan2(-segment.height, -segment.width) : Math.atan2(segment.height, segment.width);
+    if (!noHead) {
+        const endxy = segment.reversed
+            ? { x: layout.x, y: layout.y }
+            : { x: layout.x + layout.width, y: layout.y + layout.height };
+        const angle = segment.reversed
+            ? Math.atan2(-layout.height, -layout.width)
+            : Math.atan2(layout.height, layout.width);
         arrowGroup.append(() => createArrowhead(endxy, angle, self.defaults.ARROW.headSize, self.theme.ARROW_COLOR));
     }
 
-    // Draw text if it exists
+    // Draw text if it exists. The segment's layout doubles as the "itemLayout" for its text.
     if (Array.isArray(segment.text) && segment.text.length > 0) {
-        for (const text of segment.text) {
-            text.id = `${segment.id}.text_${segment.text.indexOf(text)}`;
-            self.drawText(text, segment, callback);
-        }
+        segment.text.forEach((text, i) => {
+            self.drawText(text, segment, layout, callback, `${segId}.text_${i}`);
+        });
     } else if (segment.text) {
-        segment.text.id = `${segment.id}.text`;
-        self.drawText(segment.text, segment, callback);
+        self.drawText(segment.text, segment, layout, callback, `${segId}.text`);
     }
 }
 
 // Infers the average vertical and horizontal length for segments that do not have a length specified, based on the arrow start and end positions
-function calculateAverageSegmentLength(segments, absoluteStartPosition, absoluteEndPosition) {
+function calculateAverageSegmentLength(segments, directions, absoluteStartPosition, absoluteEndPosition) {
     // Manhattan distance
     const distance = {
         x: absoluteEndPosition.x - absoluteStartPosition.x,
@@ -151,8 +144,8 @@ function calculateAverageSegmentLength(segments, absoluteStartPosition, absolute
 
     // Iterate through the segments and add or subtract (based on the segment direction) the extraLength to the distance, if it exists
     // Otherwise, increment the count for that dimension
-    segments.forEach(segment => {
-        switch (segment.direction) {
+    segments.forEach((segment, i) => {
+        switch (directions[i]) {
             case 'up':
                 segment.extraLength ? distance.y += segment.extraLength : countDoesNotHaveExtraLength.y++;
                 break;
@@ -180,64 +173,64 @@ function calculateAverageSegmentLength(segments, absoluteStartPosition, absolute
     };
 }
 
-// Calculates the absolute position of the segment based on the previous item and the direction
-function calculateAbsoluteStartPosition(segment, previousItem) {
-    // Calculate offsets for when there are multiple items
+// Calculates the absolute position of the segment based on the previous item and the direction.
+// Reads positional/dimension fields from prevLayout; reads `count` (authored) from previousItem.
+function calculateAbsoluteStartPosition(segment, previousItem, prevLayout) {
     const startOffset = {
-        x: (previousItem.xSpacing ?? 0) * ((previousItem.count ?? 1) - 1),
-        y: (previousItem.ySpacing ?? 0) * ((previousItem.count ?? 1) - 1),
+        x: (prevLayout.xSpacing ?? 0) * ((previousItem.count ?? 1) - 1),
+        y: (prevLayout.ySpacing ?? 0) * ((previousItem.count ?? 1) - 1),
     };
     const absoluteStartPosition = { x: 0, y: 0 };
 
     switch (segment.direction) {
         case 'up':
-            absoluteStartPosition.x = previousItem.x
-                + previousItem.width / 2 // Horizontally center arrow start
+            absoluteStartPosition.x = prevLayout.x
+                + prevLayout.width / 2 // Horizontally center arrow start
                 + (segment.xOffset ?? 0);
 
-            absoluteStartPosition.y = previousItem.y
+            absoluteStartPosition.y = prevLayout.y
                 // Implicitly cancelled centering:
-                // + previousItem.height / 2
-                // - previousItem.height / 2
+                // + prevLayout.height / 2
+                // - prevLayout.height / 2
                 + Math.min(startOffset.y, 0) // Adjust for multiple items (if they stack up)
                 + (segment.yOffset ?? 0);
 
             return absoluteStartPosition;
 
         case 'down':
-            absoluteStartPosition.x = previousItem.x
-                + previousItem.width / 2 // Horizontally center arrow start
+            absoluteStartPosition.x = prevLayout.x
+                + prevLayout.width / 2 // Horizontally center arrow start
                 + (segment.xOffset ?? 0);
 
-            absoluteStartPosition.y = previousItem.y
-                + previousItem.height // Implicit addition to center previousItem.height / 2 + previousItem.height / 2
+            absoluteStartPosition.y = prevLayout.y
+                + prevLayout.height // Implicit addition to center prevLayout.height / 2 + prevLayout.height / 2
                 + Math.max(startOffset.y, 0) // Adjust for multiple items (if they stack down)
                 + (segment.yOffset ?? 0);
 
             return absoluteStartPosition;
 
         case 'left':
-            absoluteStartPosition.x = previousItem.x
+            absoluteStartPosition.x = prevLayout.x
                 // Implicitly cancelled centering:
-                // + previousItem.width / 2
-                // - previousItem.width / 2
+                // + prevLayout.width / 2
+                // - prevLayout.width / 2
                 + Math.min(startOffset.x, 0) // Adjust for multiple items (if they stack left)
                 + (segment.xOffset ?? 0);
 
-            absoluteStartPosition.y = previousItem.y
-                + previousItem.height / 2 // Vertically center arrow start
+            absoluteStartPosition.y = prevLayout.y
+                + prevLayout.height / 2 // Vertically center arrow start
                 + (segment.yOffset ?? 0);
 
             return absoluteStartPosition;
 
         default: // right
-            absoluteStartPosition.x = previousItem.x
-                + previousItem.width // Implicit addition to center previousItem.width / 2 + previousItem.width / 2
+            absoluteStartPosition.x = prevLayout.x
+                + prevLayout.width // Implicit addition to center prevLayout.width / 2 + prevLayout.width / 2
                 + Math.max(startOffset.x, 0) // Adjust for multiple items (if they stack right)
                 + (segment.xOffset ?? 0);
 
-            absoluteStartPosition.y = previousItem.y
-                + previousItem.height / 2 // Vertically center arrow start
+            absoluteStartPosition.y = prevLayout.y
+                + prevLayout.height / 2 // Vertically center arrow start
                 + (segment.yOffset ?? 0);
 
             return absoluteStartPosition;
@@ -246,53 +239,53 @@ function calculateAbsoluteStartPosition(segment, previousItem) {
 }
 
 // Calculates the absolute end position of the segment based on the target item and the direction
-function calculateAbsoluteEndPosition(segment, targetItem) {
+function calculateAbsoluteEndPosition(segment, targetItem, targetLayout) {
     const targetOffset = {
-        x: (targetItem.xSpacing ?? 0) * ((targetItem.count ?? 1) - 1),
-        y: (targetItem.ySpacing ?? 0) * ((targetItem.count ?? 1) - 1),
+        x: (targetLayout.xSpacing ?? 0) * ((targetItem.count ?? 1) - 1),
+        y: (targetLayout.ySpacing ?? 0) * ((targetItem.count ?? 1) - 1),
     };
     const absoluteEndPosition = { x: 0, y: 0 };
 
     switch (segment.direction) {
         case 'up':
-            absoluteEndPosition.x = targetItem.x
-                + targetItem.width / 2
+            absoluteEndPosition.x = targetLayout.x
+                + targetLayout.width / 2
                 + (segment.xOffset ?? 0);
 
-            absoluteEndPosition.y = targetItem.y
-                + targetItem.height // Move arrow end to target's bottom side
+            absoluteEndPosition.y = targetLayout.y
+                + targetLayout.height // Move arrow end to target's bottom side
                 + Math.max(targetOffset.y, 0) // Adjust for multiple items (if they stack down)
                 + (segment.yOffset ?? 0);
             return absoluteEndPosition;
 
         case 'down':
-            absoluteEndPosition.x = targetItem.x
-                + targetItem.width / 2
+            absoluteEndPosition.x = targetLayout.x
+                + targetLayout.width / 2
                 + (segment.xOffset ?? 0);
 
-            absoluteEndPosition.y = targetItem.y
+            absoluteEndPosition.y = targetLayout.y
                 + Math.min(targetOffset.y, 0) // Adjust for multiple items (if they stack up)
                 + (segment.yOffset ?? 0);
             return absoluteEndPosition;
 
         case 'left':
-            absoluteEndPosition.x = targetItem.x
-                + targetItem.width // Move arrow end to target's right side
+            absoluteEndPosition.x = targetLayout.x
+                + targetLayout.width // Move arrow end to target's right side
                 + Math.max(targetOffset.x, 0) // Adjust for multiple items (if they stack right)
                 + (segment.xOffset ?? 0);
 
-            absoluteEndPosition.y = targetItem.y
-                + targetItem.height / 2
+            absoluteEndPosition.y = targetLayout.y
+                + targetLayout.height / 2
                 + (segment.yOffset ?? 0);
             return absoluteEndPosition;
 
         default: // right
-            absoluteEndPosition.x = targetItem.x
+            absoluteEndPosition.x = targetLayout.x
                 + Math.min(targetOffset.x, 0) // Adjust for multiple items (if they stack left)
                 + (segment.xOffset ?? 0);
 
-            absoluteEndPosition.y = targetItem.y
-                + targetItem.height / 2
+            absoluteEndPosition.y = targetLayout.y
+                + targetLayout.height / 2
                 + (segment.yOffset ?? 0);
             return absoluteEndPosition;
     }

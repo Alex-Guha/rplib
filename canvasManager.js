@@ -23,6 +23,11 @@ export default class RPCanvas {
         // Owns parsed data, view cache, navigation history.
         this.store = new ViewStore();
 
+        // Cached layout per view. Keyed by `viewName -> { [id]: { x, y, width, height, xSpacing, ySpacing } }`.
+        // Parsed view content stays immutable; this map holds the derived layout.
+        // Theme switches re-render but skip recompute; editing an item should call invalidateLayout.
+        this.layouts = {};
+
         // TODO? Refactor shape size and arrow size out, pass default view in as a parameter, and assume an inherent default theme
         this.defaults = defaults;
 
@@ -108,9 +113,36 @@ export default class RPCanvas {
     }
 
 
-    drawText = (textObject, item, callback) => drawText(this, textObject, item, callback);
-    drawSubcomponent = (item) => drawSubcomponent(this, item);
-    drawConnection = (arrow, previousItem, item, callback) => drawConnection(this, arrow, previousItem, item, callback);
+    drawText = (textObject, item, itemLayout, callback, id) => drawText(this, textObject, item, itemLayout, callback, id);
+    drawSubcomponent = (item, layout, id) => drawSubcomponent(this, item, layout, id);
+    drawConnection = (arrow, previousItem, prevLayout, item, itemLayout, callback, id) =>
+        drawConnection(this, arrow, previousItem, prevLayout, item, itemLayout, callback, id);
+
+    // Drop cached layouts so they recompute on next render.
+    // - invalidateLayout()                 — clears all views
+    // - invalidateLayout(view)             — clears one view
+    // - invalidateLayout(view, ids)        — clears specific ids plus any descendants chained via `previous`
+    invalidateLayout = (viewName, ids) => {
+        if (!viewName) { this.layouts = {}; return; }
+        if (!this.layouts[viewName]) return;
+        if (ids == null) { delete this.layouts[viewName]; return; }
+
+        const view = this.store.views[viewName];
+        const idSet = new Set(Array.isArray(ids) ? ids : [ids]);
+        if (view && view.content) {
+            let added = true;
+            while (added) {
+                added = false;
+                for (const [id, item] of Object.entries(view.content)) {
+                    if (!idSet.has(id) && item.previous && idSet.has(item.previous)) {
+                        idSet.add(id);
+                        added = true;
+                    }
+                }
+            }
+        }
+        for (const id of idSet) delete this.layouts[viewName][id];
+    };
 
     renderElements() {
         const renderId = this.currentRenderId;

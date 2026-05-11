@@ -1,9 +1,15 @@
-// Iterates through the view and renders each element
+import { computeItemLayout } from './layout.js';
+
+// Iterates through the view and renders each element. Computed layout is cached
+// in `self.layouts[viewName]` keyed by id; the parsed item is never mutated.
 export default function renderElements(self, renderId, elementToggleCallback) {
     if (!self.store.views[self.store.currentView]) return;
     const elements = self.store.views[self.store.currentView].content;
-    //console.log(elements);
     if (!elements) return;
+
+    const viewName = self.store.currentView;
+    if (!self.layouts[viewName]) self.layouts[viewName] = {};
+    const viewLayout = self.layouts[viewName];
 
     let delay = 0;
     let delayAmount = 0;
@@ -28,89 +34,36 @@ export default function renderElements(self, renderId, elementToggleCallback) {
             // If the item is toggled off, skip rendering it
             if (elementToggleCallback && elementToggleCallback(item)) return;
 
-            // Calculate the position of the item only on the first render
-            if (!item.calculated) {
-
-                // Set defaults if not specified
-                item.width = (item.width ?? self.defaults.SHAPE.width);
-                item.height = (item.height ?? self.defaults.SHAPE.height);
-                item.xSpacing = (item.xSpacing ?? (item.count ? self.defaults.SHAPE.width / 4 : 0));
-                item.ySpacing = (item.ySpacing ?? (item.count ? -self.defaults.SHAPE.height / 16 : 0));
-                /*
-                item.width = (item.width ?? 1) * self.defaults.SHAPE.width;
-                item.height = (item.height ?? 1) * self.defaults.SHAPE.height;
-                item.xSpacing = (item.xSpacing ?? (item.count ? 1 / 4 : 0)) * self.defaults.SHAPE.width;
-                item.ySpacing = (item.ySpacing ?? (item.count ? -1 / 16 : 0)) * self.defaults.SHAPE.height;
-                */
-
-                const previousAbsolutePosition = item.previous ? elements[item.previous] : { x: 0, y: 0 };
-                const currentAbsolutePosition = { x: previousAbsolutePosition.x, y: previousAbsolutePosition.y };
-
-                // Calculate the the absolute position of the item based on the previous item
-                // The ternaries handle when it's the first item (i.e. previousAbsolutePosition.width/height is undefined)
-                // "item._ ??" allows the user to override the default value if they want, but it generally shouldn't be done
-                switch (item.position) {
-                    case 'above':
-                        currentAbsolutePosition.x += (item.x ?? 0);
-                        currentAbsolutePosition.y += (item.y ?? (-(item.separation ?? self.defaults.SHAPE.separation) + (previousAbsolutePosition.height ? - item.height : 0)));
-                        break;
-                    case 'below':
-                        currentAbsolutePosition.x += (item.x ?? 0);
-                        currentAbsolutePosition.y += (item.y ?? ((item.separation ?? self.defaults.SHAPE.separation) + (previousAbsolutePosition.height ?? 0)));
-                        break;
-                    case 'left':
-                        currentAbsolutePosition.x += (item.x ?? (-(item.separation ?? self.defaults.SHAPE.separation) + (previousAbsolutePosition.width ? - item.width : 0)));
-                        currentAbsolutePosition.y += (item.y ?? (previousAbsolutePosition.height ? previousAbsolutePosition.height / 2 - item.height / 2 : 0));
-                        break;
-                    default: // Default to right positioning
-                        // Since this is the default, there is an additional check for item.previous, which ensures the first item doesn't get erroneously offset
-                        // This is specifically important for components that can be used either in other components or as a view
-                        currentAbsolutePosition.x += (item.x ?? ((item.previous ? (item.separation ?? self.defaults.SHAPE.separation) : 0) + (previousAbsolutePosition.width ?? 0)));
-                        // For right positioning, calculate y using centers of previous and item.
-                        currentAbsolutePosition.y += (item.y ?? (previousAbsolutePosition.height ? previousAbsolutePosition.height / 2 - item.height / 2 : 0));
-                        break;
-                }
-
-                // Update the item position now that it's been calculated
-                item.x = currentAbsolutePosition.x;
-                item.y = currentAbsolutePosition.y;
-                item.calculated = true;
+            // Compute layout once per view; re-renders reuse the cached entry.
+            if (!viewLayout[id]) {
+                const prevLayout = item.previous ? viewLayout[item.previous] : null;
+                viewLayout[id] = computeItemLayout(item, prevLayout, self.defaults);
             }
+            const layout = viewLayout[id];
 
-            // Draw the shape. All items normally have a shape, but it's not enforced, in case a user wants to be creative
-            if (item.shape) {
-                item.id = id;
-                self.drawSubcomponent(item);
-            }
+            // Draw the shape. All items normally have a shape, but it's not enforced.
+            if (item.shape) self.drawSubcomponent(item, layout, id);
 
-            // Draw the arrow(s). This is iterated over here because the arrows may have a different previous item specified than item does.
+            // Draw the arrow(s).
             if (Array.isArray(item.arrow) && item.arrow.length > 0) {
-                for (const arrow of item.arrow) {
-                    arrow.id = `${id}.arrow_${item.arrow.indexOf(arrow)}`;
-                    self.drawConnection(arrow, (arrow.previous ? elements[arrow.previous] : elements[item.previous]), item, elementToggleCallback);
-                }
+                item.arrow.forEach((arrow, i) => {
+                    const arrowId = `${id}.arrow_${i}`;
+                    const prevId = arrow.previous ?? item.previous;
+                    self.drawConnection(arrow, elements[prevId], viewLayout[prevId], item, layout, elementToggleCallback, arrowId);
+                });
             } else if (item.arrow) {
-                item.arrow.id = `${id}.arrow`;
-                self.drawConnection(item.arrow, (item.arrow.previous ? elements[item.arrow.previous] : elements[item.previous]), item, elementToggleCallback);
+                const prevId = item.arrow.previous ?? item.previous;
+                self.drawConnection(item.arrow, elements[prevId], viewLayout[prevId], item, layout, elementToggleCallback, `${id}.arrow`);
             }
 
             // Draw the text
             if (Array.isArray(item.text) && item.text.length > 0) {
-                for (const text of item.text) {
-                    text.id = `${id}.text_${item.text.indexOf(text)}`;
-                    self.drawText(text, item, elementToggleCallback);
-                }
+                item.text.forEach((text, i) => {
+                    self.drawText(text, item, layout, elementToggleCallback, `${id}.text_${i}`);
+                });
             } else if (item.text) {
-                item.text.id = `${id}.text`;
-                self.drawText(item.text, item, elementToggleCallback);
+                self.drawText(item.text, item, layout, elementToggleCallback, `${id}.text`);
             }
-
-            // Attach event listeners after rendering
-            // Object.entries(eventListenerTargets).forEach(([target, eventListener]) => {
-            //     self.canvasDOM.selectAll(`[data-${target}]`).each(function () {
-            //         eventListener(d3.select(this));
-            //     });
-            // });
         }, delay);
 
         delay += delayAmount;
