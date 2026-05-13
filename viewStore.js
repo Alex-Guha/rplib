@@ -14,10 +14,6 @@ export default class ViewStore {
         // without needing to know about any particular DSL's notion of "abstract".
         this.rootViews = new Set();
 
-        // Per-abstract view-hierarchy summary, consumed by app sidebars.
-        // TODO Lift to app-side: only used by the view-nav menu.
-        this.viewStructures = {};
-
         this.currentView = null;
         this.rootView = null;
 

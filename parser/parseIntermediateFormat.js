@@ -1,5 +1,7 @@
 // TODO Update comments
 
+import { setViewStructure, addDetailView } from "./viewStructures.js";
+
 /**
 This file contains functions to parse json definitions of architectures provided by parseArchitecture.js.
 As such, it also contains functions to parse details and components, since they are used in architectures.
@@ -26,7 +28,7 @@ export function parseAbstractDefinition(store, components, abstractName) {
 
     // Used to display the view nav menu in the sidebar
     // This will contain pointers to detail views
-    store.viewStructures[abstractName] = [];
+    setViewStructure(abstractName, []);
 
     Object.entries(store.abstractDefinitions[abstractName]).forEach(([sectionName, sectionContents]) => {
         if (sectionName !== 'properties' && sectionName !== 'content') rootView[sectionName] = sectionContents;
@@ -53,7 +55,7 @@ export function parseComponentView(store, components, viewName, parentComponentC
     }
 
     // Used to display the view nav menu in the sidebar
-    store.viewStructures[viewName] = [];
+    setViewStructure(viewName, []);
 
     buildComponent(store, components, viewName, view, viewName, parentComponentChain, overrides);
 
@@ -200,12 +202,12 @@ function buildComponent(store, components, componentID, viewDetails, viewName, p
 function handleDetails(store, components, targetItem, viewName, parentComponentChain, swapModules) {
     if (targetItem.details && !store.views[targetItem.details] && (swapModules == null || Object.keys(swapModules).length === 0)) {
         // The detail is generic and hasn't been made yet
-        store.viewStructures[viewName].push(targetItem.details);
+        addDetailView(viewName, targetItem.details);
         store.views[targetItem.details] = parseComponentView(store, components, targetItem.details, parentComponentChain, null);
 
     } else if (targetItem.details && store.views[targetItem.details] && (swapModules == null || Object.keys(swapModules).length === 0)) {
         // The detail is generic and already exists
-        store.viewStructures[viewName].push(targetItem.details);
+        addDetailView(viewName, targetItem.details);
 
     } else if (targetItem.details) {
         // The detail is unique/architecture-specific
@@ -219,6 +221,6 @@ function handleDetails(store, components, targetItem, viewName, parentComponentC
         store.views[newDetailName] = parseComponentView(store, components, targetItem.details, parentComponentChain, swapModules);
 
         targetItem.details = newDetailName;
-        store.viewStructures[viewName].push(newDetailName);
+        addDetailView(viewName, newDetailName);
     }
 }

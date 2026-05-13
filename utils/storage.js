@@ -1,4 +1,5 @@
 import { parseAbstractDefinition } from "../parser/parseIntermediateFormat.js";
+import { clearViewStructures } from "../parser/viewStructures.js";
 
 // Only appends saved definitions, doesn't overwrite ones read from file at startup
 export function loadAbstractDefinitions(canvas) {
@@ -17,12 +18,12 @@ export function saveAbstractDefinitions(canvas) {
 export function clearAbstractDefinitions(canvas) {
     localStorage.removeItem('abstractDefinitions');
     localStorage.removeItem('rootView');
-    canvas.store.viewStructures = {};
+    clearViewStructures();
 }
 
 
-export function loadRootView(canvas) {
-    const rootView = localStorage.getItem('rootView') || canvas.defaults.VIEW;
+export function loadRootView(canvas, fallbackView) {
+    const rootView = localStorage.getItem('rootView') || fallbackView;
     canvas.store.rootView = rootView;
 
     canvas.store.views[rootView] = parseAbstractDefinition(canvas.store, canvas.components, rootView);

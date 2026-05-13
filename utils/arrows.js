@@ -74,7 +74,7 @@ export default function drawConnection(self, arrow, previousItem, prevLayout, it
         drawSegment(self, arrow, layout, arrow.noHead ?? false, arrowGroup, id, callback);
     }
 
-    // Property inheritance is handled at read time by findHeirarchicalElementProperty;
+    // Property inheritance is handled at read time by findHierarchicalElementProperty;
     // this call only attaches DOM listeners, no longer mutates the arrow object.
     attachListeners(arrowGroup, arrow, item, self.eventListenerTargets);
 }

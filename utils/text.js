@@ -37,7 +37,7 @@ export default function drawText(self, textObject, item, itemLayout, callback, i
     label.setAttribute('x', textObjectX);
     label.setAttribute('y', textObjectY);
 
-    // Property inheritance is handled at read time by findHeirarchicalElementProperty;
+    // Property inheritance is handled at read time by findHierarchicalElementProperty;
     // this call only attaches DOM listeners, no longer mutates objects.
     attachListeners(label, textObject, item, self.eventListenerTargets);
 

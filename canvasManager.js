@@ -4,6 +4,7 @@ import drawConnection from "./utils/arrows.js";
 import resetZoom from './utils/zoom.js';
 import renderElements from "./renderView.js";
 import ViewStore from "./viewStore.js";
+import { mergeDefaults, LIB_DEFAULT_THEME } from "./defaults.js";
 
 import { parseAbstractDefinition, parseComponentView } from "./parser/parseIntermediateFormat.js";
 
@@ -45,15 +46,21 @@ export default class RPCanvas {
         // Theme switches re-render but skip recompute; editing an item should call invalidateLayout.
         this.layouts = {};
 
-        // TODO? Refactor shape size and arrow size out, pass default view in as a parameter, and assume an inherent default theme
-        this.defaults = defaults;
+        // Merge any app-provided overrides on top of the library's inherent SHAPE/ARROW defaults.
+        // The lib renders with these alone if nothing is passed in.
+        this.defaults = mergeDefaults(defaults);
 
-        // Theme should be unified with the parent app, so it should always be passed in as a parameter
-        // Mandatory ARROW_COLOR, OPACITY, SHAPE_FILL, SHAPE_STROKE, TEXT_COLOR
-        this.theme = defaults.THEME;
+        // Theme is per-render app state. The lib ships a minimal fallback so it
+        // renders something before setTheme is called; apps drive the real theme
+        // via canvas.setTheme(theme).
+        this.theme = LIB_DEFAULT_THEME;
 
         this.renderDelay = false;
-        this.currentRenderId = 0;
+        this.currentRenderToken = null;
+    };
+
+    setTheme = (theme) => {
+        this.theme = theme;
     };
 
     resetZoom = () => resetZoom(this.svgDOM, this.canvasDOM);
@@ -63,18 +70,15 @@ export default class RPCanvas {
 
     changeViews = (view) => {
         const store = this.store;
-        let error = null;
         if (!store.views[view]) {
             const resolved = this.resolveView(this, view);
-            if (resolved) {
-                store.views[view] = resolved.view;
-                if (resolved.isRoot) {
-                    store.rootViews.add(view);
-                    store.rootView = view;
-                }
-            } else {
-                error = new Error(`Failed to Change Views\nView ${view} not found.\nFalling back to default.`);
-                view = this.defaults.VIEW;
+            if (!resolved) {
+                throw new Error(`Failed to Change Views\nView ${view} not found.`);
+            }
+            store.views[view] = resolved.view;
+            if (resolved.isRoot) {
+                store.rootViews.add(view);
+                store.rootView = view;
             }
         } else if (store.rootViews.has(view)) {
             store.rootView = view;
@@ -82,7 +86,6 @@ export default class RPCanvas {
         store.undoHistory.push(store.currentView);
         store.redoHistory = [];
         this.setCurrentView(view);
-        if (error) throw error;
     };
 
     undoViewChange = () => {
@@ -122,7 +125,6 @@ export default class RPCanvas {
         const prevView = this.store.currentView;
         this._fire('beforeViewChange', { view, prevView });
         this.store.currentView = view;
-        this.currentRenderId++;
         this.clearCanvas();
         this.resetZoom();
         this.renderElements();
@@ -164,11 +166,10 @@ export default class RPCanvas {
     };
 
     renderElements() {
-        const renderId = this.currentRenderId;
-        renderElements(this, renderId, this.elementToggleCallback);
+        renderElements(this, this.elementToggleCallback);
     }
 
-    findHeirarchicalElementProperty = (id, property) => {
+    findHierarchicalElementProperty = (id, property) => {
         const idSegments = id.split('.') ?? [];
         const currentContent = () => this.store.views[this.store.currentView].content;
         while (idSegments.length > 0) {
