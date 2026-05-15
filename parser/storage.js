@@ -1,5 +1,5 @@
-import { parseAbstractDefinition } from "../parser/parseIntermediateFormat.js";
-import { clearViewStructures } from "../parser/viewStructures.js";
+import { parseAbstractDefinition } from "./parseIntermediateFormat.js";
+import { clearViewStructures } from "./viewStructures.js";
 
 // Only appends saved definitions, doesn't overwrite ones read from file at startup
 export function loadAbstractDefinitions(canvas) {

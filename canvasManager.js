@@ -50,17 +50,37 @@ export default class RPCanvas {
         // The lib renders with these alone if nothing is passed in.
         this.defaults = mergeDefaults(defaults);
 
-        // Theme is per-render app state. The lib ships a minimal fallback so it
-        // renders something before setTheme is called; apps drive the real theme
-        // via canvas.setTheme(theme).
-        this.theme = LIB_DEFAULT_THEME;
-
         this.renderDelay = false;
         this.currentRenderToken = null;
+
+        // Theme is per-render app state. The lib ships a minimal fallback so it
+        // renders something before setTheme is called; apps drive the real theme
+        // via canvas.setTheme(theme). Routed through setTheme so the CSS variables
+        // the renderer reads at draw time are populated even with no app override.
+        this.setTheme(LIB_DEFAULT_THEME);
     };
 
+    // Themes drive colors via CSS variables on the svg root so toggles are a single
+    // style.setProperty pass per variable — no DOM rebuild. OPACITY is read at render
+    // time because per-item overrides (count-stacked opacity, item.opacity) mix it
+    // arithmetically; a theme change that alters OPACITY only takes effect on next render.
     setTheme = (theme) => {
         this.theme = theme;
+        const svgNode = this.svgDOM.node();
+        if (!svgNode) return;
+        const style = svgNode.style;
+        style.setProperty('--rplib-shape-fill', theme.SHAPE_FILL);
+        style.setProperty('--rplib-shape-stroke', theme.SHAPE_STROKE);
+        style.setProperty('--rplib-arrow-color', theme.ARROW_COLOR);
+
+        // Reset prior text-color vars so a shorter palette doesn't leave stale ones around.
+        const prevCount = this._textColorVarCount ?? 0;
+        const nextCount = Array.isArray(theme.TEXT_COLOR) ? theme.TEXT_COLOR.length : 0;
+        for (let i = 1; i <= Math.max(prevCount, nextCount); i++) {
+            if (i <= nextCount) style.setProperty(`--rplib-text-color-${i}`, theme.TEXT_COLOR[i - 1]);
+            else style.removeProperty(`--rplib-text-color-${i}`);
+        }
+        this._textColorVarCount = nextCount;
     };
 
     resetZoom = () => resetZoom(this.svgDOM, this.canvasDOM);
@@ -138,6 +158,21 @@ export default class RPCanvas {
     drawSubcomponent = (item, layout, id) => drawSubcomponent(this, item, layout, id);
     drawConnection = (arrow, previousItem, prevLayout, item, itemLayout, callback, id) =>
         drawConnection(this, arrow, previousItem, prevLayout, item, itemLayout, callback, id);
+
+    // Drop a cached resolved view so the next navigation re-runs `resolveView` and
+    // re-resolves from authored definitions. Pair with `invalidateLayout` since a
+    // fresh view content also needs fresh layout.
+    // - invalidateView()        — clears all cached views and layouts
+    // - invalidateView(name)    — clears one view and its layout
+    invalidateView = (viewName) => {
+        if (!viewName) {
+            this.store.views = {};
+            this.layouts = {};
+            return;
+        }
+        delete this.store.views[viewName];
+        delete this.layouts[viewName];
+    };
 
     // Drop cached layouts so they recompute on next render.
     // - invalidateLayout()                 — clears all views

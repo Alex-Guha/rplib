@@ -23,9 +23,12 @@ export default function drawSubcomponent(self, item, layout, id) {
                 return;
         }
 
+        // Colors flow through CSS variables (see canvasManager.setTheme) so theme
+        // toggles don't require re-rendering. Inline style takes precedence over the
+        // SVG presentation attribute and is the only form that accepts var(...).
         shape.attr('opacity', (1 - i * 0.1) * (item.opacity ?? self.theme.OPACITY))
-            .attr('fill', self.theme.SHAPE_FILL)
-            .attr('stroke', self.theme.SHAPE_STROKE)
+            .style('fill', 'var(--rplib-shape-fill)')
+            .style('stroke', 'var(--rplib-shape-stroke)')
             .attr(`id`, id);
 
         // Unlike text and arrows, shapes are the roots of local property hierarchies

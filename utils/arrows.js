@@ -14,10 +14,11 @@ export default function drawConnection(self, arrow, previousItem, prevLayout, it
     // Allows arrows to be togglable
     if (callback && callback(arrow)) return;
 
-    // Create a group for the arrow
+    // Create a group for the arrow. Color flows from a CSS variable so theme
+    // toggles don't require a redraw; children inherit via SVG presentation.
     const arrowGroup = self.canvasDOM.append('g')
-        .attr('stroke', self.theme.ARROW_COLOR)
-        .attr('fill', self.theme.ARROW_COLOR)
+        .style('stroke', 'var(--rplib-arrow-color)')
+        .style('fill', 'var(--rplib-arrow-color)')
         .attr(`id`, id);
 
     // Handle segmented arrows
@@ -118,7 +119,7 @@ function drawSegment(self, segment, layout, noHead, arrowGroup, segId, callback)
         const angle = segment.reversed
             ? Math.atan2(-layout.height, -layout.width)
             : Math.atan2(layout.height, layout.width);
-        arrowGroup.append(() => createArrowhead(endxy, angle, self.defaults.ARROW.headSize, self.theme.ARROW_COLOR));
+        arrowGroup.append(() => createArrowhead(endxy, angle, self.defaults.ARROW.headSize));
     }
 
     // Draw text if it exists. The segment's layout doubles as the "itemLayout" for its text.
@@ -291,8 +292,9 @@ function calculateAbsoluteEndPosition(segment, targetItem, targetLayout) {
     }
 }
 
-// Creates an arrowhead at the end of the arrow
-function createArrowhead(end, angle, headSize, arrowColor) {
+// Creates an arrowhead at the end of the arrow. Fill is inherited from the parent
+// arrow group, which sources its color from a CSS variable.
+function createArrowhead(end, angle, headSize) {
     const arrowPath = d3.path();
     arrowPath.moveTo(end.x, end.y);
     arrowPath.lineTo(end.x - headSize * Math.cos(angle - Math.PI / 6), end.y - headSize * Math.sin(angle - Math.PI / 6));
@@ -301,7 +303,6 @@ function createArrowhead(end, angle, headSize, arrowColor) {
 
     return d3.create('svg:path')
         .attr('d', arrowPath.toString())
-        .attr('fill', arrowColor)
         .node();
 }
 

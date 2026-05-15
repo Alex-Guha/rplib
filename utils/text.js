@@ -28,7 +28,7 @@ export default function drawText(self, textObject, item, itemLayout, callback, i
         : (textObject.text ? applyPlaceholders(textObject.text, properties) : '');
 
     // Handle latex differently than normal text
-    const label = isLatex ? createLatexLabel(resolved, textObject, self.theme) : createTextLabel(resolved, textObject, self.theme);
+    const label = isLatex ? createLatexLabel(resolved, textObject) : createTextLabel(resolved, textObject);
     label.setAttribute('id', id);
 
     // Set the base position of the text, before relative positioning
@@ -41,34 +41,33 @@ export default function drawText(self, textObject, item, itemLayout, callback, i
     // this call only attaches DOM listeners, no longer mutates objects.
     attachListeners(label, textObject, item, self.eventListenerTargets);
 
-    // Render the text
+    // Render the text. getBBox works synchronously once the node is in the DOM —
+    // for SVG <text> it returns valid geometry immediately; for the latex foreignObject
+    // path, width/height were set explicitly at creation so the bbox is deterministic.
     self.canvasDOM.append(() => (label));
 
-    // After rendering, use the text's height and width to position it correctly relative to the item
-    setTimeout(() => {
-        const bbox = label.getBBox();
-        let adjustedX = textObjectX;
-        let adjustedY = textObjectY;
-        const height = itemLayout.height;
-        const width = itemLayout.width;
+    const bbox = label.getBBox();
+    let adjustedX = textObjectX;
+    let adjustedY = textObjectY;
+    const height = itemLayout.height;
+    const width = itemLayout.width;
 
-        // top-center is default
-        // the first word is the arrangement relative to the center of the box
-        const relativeToCenter = textObject.position ? textObject.position.split('-')[0] : 'top';
-        // the second is relative to the side of the box that the text is on
-        const relativeToSide = textObject.position ? textObject.position.split('-')[1] || 'center' : 'center';
+    // top-center is default
+    // the first word is the arrangement relative to the center of the box
+    const relativeToCenter = textObject.position ? textObject.position.split('-')[0] : 'top';
+    // the second is relative to the side of the box that the text is on
+    const relativeToSide = textObject.position ? textObject.position.split('-')[1] || 'center' : 'center';
 
-        if (['right', 'left'].includes(relativeToCenter)) {
-            adjustedX += xAlign(relativeToCenter, width, bbox, isLatex);
-            adjustedY += ySide(relativeToSide, height, bbox, isLatex);
-        } else {
-            adjustedX += xSide(relativeToSide, width, bbox, isLatex);
-            adjustedY += yAlign(relativeToCenter, height, bbox, isLatex);
-        }
+    if (['right', 'left'].includes(relativeToCenter)) {
+        adjustedX += xAlign(relativeToCenter, width, bbox, isLatex);
+        adjustedY += ySide(relativeToSide, height, bbox, isLatex);
+    } else {
+        adjustedX += xSide(relativeToSide, width, bbox, isLatex);
+        adjustedY += yAlign(relativeToCenter, height, bbox, isLatex);
+    }
 
-        label.setAttribute('x', adjustedX);
-        label.setAttribute('y', adjustedY);
-    }, 0);
+    label.setAttribute('x', adjustedX);
+    label.setAttribute('y', adjustedY);
 }
 
 // The +/-5 in any of these is just a little padding
@@ -107,13 +106,13 @@ function ySide(pos, height, bbox, latex) {
 
 // Occasionally, the latex text is clipped on the left and right sides a little bit, not sure why.
 // Handled with overflow: visible for now, but it causes a little bit of positioning issues.
-function createLatexLabel(latexText, textObject, theme) {
+function createLatexLabel(latexText, textObject) {
     const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
     foreignObject.setAttribute('overflow', 'visible');
 
     const div = document.createElement('div');
     div.style.fontSize = '18px';
-    div.style.color = colorSwitch(textObject.color, theme);
+    div.style.color = colorSwitch(textObject.color);
 
     // The width and height of LaTeX needs to be set directly, so we need to measure it first
     div.style.display = 'inline-block';
@@ -138,19 +137,21 @@ function createLatexLabel(latexText, textObject, theme) {
     return foreignObject;
 }
 
-function createTextLabel(text, textObject, theme) {
+function createTextLabel(text, textObject) {
     const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    textElement.setAttribute('fill', colorSwitch(textObject.color, theme));
+    // Inline style (not the SVG `fill` attribute) so var(...) resolves; theme switches
+    // update the CSS variable and the existing DOM picks up the new color automatically.
+    textElement.style.fill = colorSwitch(textObject.color);
     textElement.textContent = text;
 
     return textElement;
 }
 
-// Helper that first looks for an integer between 1 and however many colors are specified, then falls back to assuming the color has been overidden and specified directly.
-function colorSwitch(color, theme) {
-    return color
-        ? (typeof color === 'number' && color >= 1 && color <= theme.TEXT_COLOR.length
-            ? theme.TEXT_COLOR[color - 1]
-            : color
-        ) : theme.TEXT_COLOR[0];
+// Numeric color values map into the theme's palette via CSS variables defined by
+// canvasManager.setTheme. Non-numeric values are treated as direct CSS color overrides.
+// Default (no color specified) uses the first palette slot.
+function colorSwitch(color) {
+    if (color == null) return 'var(--rplib-text-color-1)';
+    if (typeof color === 'number') return `var(--rplib-text-color-${color})`;
+    return color;
 }

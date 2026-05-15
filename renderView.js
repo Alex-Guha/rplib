@@ -75,25 +75,28 @@ export default function renderElements(self, elementToggleCallback) {
     }
 }
 
-// Draws items one-per-N-frames so the graph appears to build up. The frame gap
-// scales inversely with view size so a small view doesn't feel sluggish and a
-// huge one doesn't take forever.
+// Draws items spaced out in wall-clock time so the graph appears to build up.
+// The per-item interval scales inversely with view size so a small view doesn't
+// feel sluggish and a huge one doesn't take forever. rAF drives the loop (rather
+// than setTimeout) so cancellation stays uniform with the rest of the render
+// path, but pacing is time-based — `delayMs` units, not frames.
 function scheduleStaggered(entries, drawItem, token) {
-    const framesPerItem = Math.max(Math.round(-0.25 * entries.length + 32.5), 0);
+    const delayMs = Math.max(-0.25 * entries.length + 32.5, 0);
     let i = 0;
-    let frameCount = framesPerItem; // draw the first item immediately
+    let nextDrawAt = performance.now(); // first item draws on the first tick
 
-    const tick = () => {
+    const tick = (now) => {
         if (token.cancelled || i >= entries.length) return;
-        if (frameCount >= framesPerItem) {
+        // Drain any intervals that have already elapsed — for very small delayMs
+        // this lets us draw multiple items per frame, matching the old behavior
+        // where setTimeout(0)s coalesced.
+        while (i < entries.length && now >= nextDrawAt) {
             const [id, item] = entries[i];
             drawItem(id, item);
             i++;
-            frameCount = 0;
-        } else {
-            frameCount++;
+            nextDrawAt += delayMs;
         }
-        requestAnimationFrame(tick);
+        if (i < entries.length) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
 }
