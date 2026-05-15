@@ -1,9 +1,12 @@
-// TODO Write test cases
-
 // ==============================
 // custom text format -> JSON
 // ==============================
 
+/**
+ * Fetch a `.txt` abstract-definition file and parse it. Browser-only (uses `fetch`).
+ * @param {string} filePath
+ * @returns {Promise<Object>} Map of `{ [definitionName]: definitionStructure }`.
+ */
 export function parseAbstractDefinitionFile(filePath) {
     return new Promise((resolve, reject) => {
         fetch(filePath)
@@ -20,6 +23,11 @@ export function parseAbstractDefinitionFile(filePath) {
     });
 }
 
+/**
+ * Parse abstract-definition source text into the intermediate JSON format.
+ * @param {string} content
+ * @returns {Object} `{ [definitionName]: definitionStructure }`.
+ */
 export function parseAbstractContent(content) {
     // Split content into lines and remove empty lines
     const lines = content.split('\n')
@@ -199,18 +207,20 @@ function parseGenericSectionContent(lines, startIndex, titleIndent) {
     let section;
     let i = startIndex;
 
-    // TODO Not the best way to infer type, will fail if the first item doesn't have a colon but then any other one does
-    /* i.e.
-    title:
-        item
-        item:
-            stuff
-    */
-    if (lines[i].trim().includes(':'))
-        section = {};
-    else
-        section = [];
-    
+    // Scan all direct children (same indent as first child) and treat the section as an
+    // object if any of them is a `key: value` line. Otherwise it's a plain array. This
+    // avoids the bug where a colon-less first child misclassified the whole section.
+    const firstChildIndent = countIndent(lines[i]);
+    section = [];
+    for (let j = i; j < lines.length; j++) {
+        const childIndent = countIndent(lines[j]);
+        if (childIndent <= titleIndent) break;
+        if (childIndent === firstChildIndent && lines[j].trim().includes(':')) {
+            section = {};
+            break;
+        }
+    }
+
 
     while (i < lines.length) {
         const line = lines[i];

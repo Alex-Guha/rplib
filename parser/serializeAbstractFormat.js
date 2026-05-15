@@ -1,13 +1,13 @@
-// TODO Write test cases
-
 // ==============================
 // JSON -> custom text format
 // ==============================
 
 /**
- * Converts a JavaScript abstract object back to its text representation format
- * @param {Object} abstract The abstract object to serialize
- * @returns {string} Text representation of the abstract
+ * Serialize an intermediate definition back into the indent-based text format.
+ * Round-trip with `parseAbstractContent` (parser tests still TODO).
+ * @param {string} abstractName - Top-level definition name to use as the heading.
+ * @param {Object} structure - Intermediate definition (the value half of `parseAbstractContent`).
+ * @returns {string} Source text.
  */
 export default function serializeAbstractDefinition(abstractName, structure) {
     if (!structure || typeof structure !== 'object') {

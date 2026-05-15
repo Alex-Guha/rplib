@@ -33,7 +33,7 @@ export default function renderElements(self, elementToggleCallback) {
         if (token.cancelled) return;
 
         if (item.previous && !elements[item.previous]) {
-            console.warn(`Item "${id}" has a previous item "${item.previous}" that does not exist. Skipping rendering for this item.`);
+            self.reporter.warn(`Item "${id}" has a previous item "${item.previous}" that does not exist. Skipping rendering for this item.`);
             return;
         }
 

@@ -24,7 +24,41 @@ function defaultResolveView(canvas, name) {
     return null;
 }
 
+/**
+ * Relational-positioning canvas. Owns the SVG, the resolved-view cache, the
+ * cached layout, and the render loop. Apps compose an RPCanvas; do not extend.
+ *
+ * @typedef {Object} ResolvedView
+ * @property {Object<string, Object>} content - Items keyed by id; render order = insertion order.
+ * @property {Object<string, string>} [properties] - Root-only; used for `{{name}}` substitution in text.
+ *
+ * @typedef {Object} ResolveResult
+ * @property {ResolvedView} view
+ * @property {boolean} isRoot - true for top-level views; only roots own `properties`.
+ *
+ * @callback ResolveView
+ * @param {RPCanvas} canvas
+ * @param {string} name
+ * @returns {ResolveResult|null} `null` if the name is unknown.
+ *
+ * @typedef {Object} Reporter
+ * @property {(msg: string, ctx?: any) => void} error
+ * @property {(msg: string, ctx?: any) => void} warn
+ *
+ * @typedef {Object} Storage
+ * @property {(key: string) => string|null} getItem
+ * @property {(key: string, value: string) => void} setItem
+ * @property {(key: string) => void} removeItem
+ */
 export default class RPCanvas {
+    /**
+     * @param {Object} svgDOM - d3 selection of the target `<svg>`.
+     * @param {Object} [defaults] - Optional shallow overrides for SHAPE/ARROW. Merged on top of `rplib/defaults.js`.
+     * @param {Object<string, Object>} [components] - Bundled-DSL component map. Required only when using the default resolver.
+     * @param {Object<string, Function>} [eventListenerTargets] - Map of attribute name → listener attacher. Used by `attachListeners`.
+     * @param {(item: Object) => boolean} [elementToggleCallback] - Returning true skips drawing the item.
+     * @param {ResolveView} [resolveView] - Optional adapter for app-owned DSLs. Defaults to the bundled DSL parser.
+     */
     constructor(svgDOM, defaults, components, eventListenerTargets, elementToggleCallback, resolveView) {
         this.svgDOM = svgDOM;
         this.canvasDOM = this.svgDOM.append("g").attr("id", "content");
@@ -40,6 +74,11 @@ export default class RPCanvas {
 
         // Owns parsed data, view cache, navigation history.
         this.store = new ViewStore();
+
+        // Error reporter. Apps can swap via setReporter to route lib diagnostics
+        // through their own logging/telemetry. Must implement { error, warn }.
+        this.reporter = console;
+        this.store.reporter = this.reporter;
 
         // Cached layout per view. Keyed by `viewName -> { [id]: { x, y, width, height, xSpacing, ySpacing } }`.
         // Parsed view content stays immutable; this map holds the derived layout.
@@ -64,6 +103,12 @@ export default class RPCanvas {
     // style.setProperty pass per variable — no DOM rebuild. OPACITY is read at render
     // time because per-item overrides (count-stacked opacity, item.opacity) mix it
     // arithmetically; a theme change that alters OPACITY only takes effect on next render.
+    /**
+     * Apply a theme by writing CSS variables on the svg root. Color changes don't
+     * require re-rendering; OPACITY is read at render time so an OPACITY-only theme
+     * change takes effect on next render.
+     * @param {Object} theme - { SHAPE_FILL, SHAPE_STROKE, ARROW_COLOR, TEXT_COLOR: string[], OPACITY }
+     */
     setTheme = (theme) => {
         this.theme = theme;
         const svgNode = this.svgDOM.node();
@@ -83,11 +128,26 @@ export default class RPCanvas {
         this._textColorVarCount = nextCount;
     };
 
+    /**
+     * Replace the diagnostics reporter. Default is `console`.
+     * @param {Reporter} reporter
+     */
+    setReporter = (reporter) => {
+        this.reporter = reporter;
+        this.store.reporter = reporter;
+    };
+
     resetZoom = () => resetZoom(this.svgDOM, this.canvasDOM);
     clearCanvas = () => { this.canvasDOM.selectAll('*').remove(); };
     toggleRenderDelay = () => { this.renderDelay = !this.renderDelay; };
 
 
+    /**
+     * Navigate to a view by name. Resolves it on cache miss via `resolveView`,
+     * pushes the previous view onto the undo stack, and renders. Throws if the
+     * view can't be resolved.
+     * @param {string} view
+     */
     changeViews = (view) => {
         const store = this.store;
         if (!store.views[view]) {
@@ -128,6 +188,12 @@ export default class RPCanvas {
         this.setCurrentView(view);
     };
 
+    /**
+     * Register a lifecycle hook. Supported events: `'beforeViewChange'`,
+     * `'afterViewChange'`. Payload: `{ view, prevView }`.
+     * @param {'beforeViewChange'|'afterViewChange'} eventName
+     * @param {(payload: { view: string, prevView: string }) => void} fn
+     */
     on(eventName, fn) {
         if (!this.hooks[eventName]) this.hooks[eventName] = [];
         this.hooks[eventName].push(fn);
@@ -139,8 +205,10 @@ export default class RPCanvas {
         for (const fn of listeners) fn(payload);
     }
 
-    // Any time the view changes, these other functions also occur
-    // XXX When the view stays the same but this is called, it would be better to iterate the existing DOM and update colors rather than redrawing everything
+    // Switch the rendered view. Theme/color changes don't need this — colors flow
+    // through CSS variables (see setTheme). Call this when the view itself changes
+    // or when something the renderer reads at draw time (e.g. theme OPACITY,
+    // renderDelay) was toggled and you need a fresh pass.
     setCurrentView(view) {
         const prevView = this.store.currentView;
         this._fire('beforeViewChange', { view, prevView });
@@ -164,6 +232,12 @@ export default class RPCanvas {
     // fresh view content also needs fresh layout.
     // - invalidateView()        — clears all cached views and layouts
     // - invalidateView(name)    — clears one view and its layout
+    /**
+     * Drop a cached resolved view so the next navigation re-runs `resolveView`.
+     * Pair with `invalidateLayout` since fresh content also needs fresh layout.
+     * Omit `viewName` to clear all cached views and layouts.
+     * @param {string} [viewName]
+     */
     invalidateView = (viewName) => {
         if (!viewName) {
             this.store.views = {};
@@ -178,6 +252,12 @@ export default class RPCanvas {
     // - invalidateLayout()                 — clears all views
     // - invalidateLayout(view)             — clears one view
     // - invalidateLayout(view, ids)        — clears specific ids plus any descendants chained via `previous`
+    /**
+     * Drop cached layouts so they recompute on next render. Descendants chained
+     * via `previous` are auto-invalidated.
+     * @param {string} [viewName] - Omit to clear all views.
+     * @param {string|string[]} [ids] - Specific item ids; omit to clear the whole view.
+     */
     invalidateLayout = (viewName, ids) => {
         if (!viewName) { this.layouts = {}; return; }
         if (!this.layouts[viewName]) return;
@@ -204,6 +284,13 @@ export default class RPCanvas {
         renderElements(this, this.elementToggleCallback);
     }
 
+    /**
+     * Walk an item id from most-specific to least-specific (split on `.`) and
+     * return the first segment that owns `property`. Used for inheritance of text
+     * styling, descriptions, etc. across nested arrow/text segments.
+     * @param {string} id
+     * @param {string} property
+     */
     findHierarchicalElementProperty = (id, property) => {
         const idSegments = id.split('.') ?? [];
         const currentContent = () => this.store.views[this.store.currentView].content;

@@ -1,0 +1,30 @@
+{
+  "name": "rplib",
+  "version": "0.1.0",
+  "description": "Relational-positioning diagram library: anchor-based DSL with recursive composition and in-place component swap.",
+  "type": "module",
+  "main": "canvasManager.js",
+  "exports": {
+    ".": "./canvasManager.js",
+    "./defaults": "./defaults.js",
+    "./layout": "./layout.js",
+    "./renderView": "./renderView.js",
+    "./parser/*": "./parser/*",
+    "./utils/*": "./utils/*"
+  },
+  "files": [
+    "canvasManager.js",
+    "defaults.js",
+    "layout.js",
+    "renderView.js",
+    "viewStore.js",
+    "parser",
+    "utils",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "d3": "^7.0.0",
+    "katex": "^0.16.0"
+  },
+  "license": "ISC"
+}

@@ -1,5 +1,3 @@
-// TODO Update comments
-
 import { setViewStructure, addDetailView } from "./viewStructures.js";
 
 /**
@@ -12,7 +10,15 @@ parseArchitecture handles converting the abstract architecture definitions, whic
 Additionally, when parsing the architecture, we also build the views for any details that are referenced in architecture components.
 */
 
-// Parses architectures and creates the corresponding view
+/**
+ * Resolve a top-level abstract definition into a flat view (root view).
+ * Recursively unrolls components in `store.abstractDefinitions[abstractName]`.
+ * Side effect: registers view structure for sidebar enumeration via `setViewStructure`.
+ * @param {Object} store - ViewStore-shaped; needs `.abstractDefinitions`, `.views`, `.reporter`.
+ * @param {Object<string, Object>} components - Component map keyed by component id.
+ * @param {string} abstractName
+ * @returns {{ properties: Object, content: Object<string, Object> }} Resolved view.
+ */
 export function parseAbstractDefinition(store, components, abstractName) {
 
     // The flat view structure
@@ -22,7 +28,7 @@ export function parseAbstractDefinition(store, components, abstractName) {
     }
 
     if (!store.abstractDefinitions[abstractName]) {
-        console.error(`Abstract definition "${abstractName}" not found.`);
+        store.reporter.error(`Abstract definition "${abstractName}" not found.`);
         return rootView;
     }
 
@@ -44,8 +50,16 @@ export function parseAbstractDefinition(store, components, abstractName) {
     return rootView;
 }
 
-// Parses details and creates the corresponding view
-// Essentially a wrapper on buildComponent
+/**
+ * Resolve a component (detail view) into a flat view. Used by the default
+ * resolver for non-root navigation targets.
+ * @param {Object} store
+ * @param {Object<string, Object>} components
+ * @param {string} viewName - Component id to resolve.
+ * @param {string[]} [parentComponentChain] - Used internally to detect cyclical refs.
+ * @param {Object} [overrides] - Reserved.
+ * @returns {{ content: Object<string, Object> }} Resolved view.
+ */
 export function parseComponentView(store, components, viewName, parentComponentChain = [], overrides = null) {
     //console.debug(`Building view ${viewName}`);
 
@@ -73,13 +87,13 @@ function buildComponent(store, components, componentID, viewDetails, viewName, p
 
     const targetComponent = components[cleanedComponentID];
     if (!targetComponent) {
-        console.error(`Component ${componentID} not found.`);
+        store.reporter.error(`Component ${componentID} not found.`);
         return;
     }
 
     // Prevents recursive definition loops, either as self-references or cyclical references
     if (parentComponentChain.includes(componentID)) {
-        console.error(`Cyclical reference detected at component ${componentID}. Parents: ${parentComponentChain.join(' -> ')}`);
+        store.reporter.error(`Cyclical reference detected at component ${componentID}. Parents: ${parentComponentChain.join(' -> ')}`);
         return;
     }
     const componentChain = [...parentComponentChain, componentID];
@@ -135,7 +149,7 @@ function buildComponent(store, components, componentID, viewDetails, viewName, p
 
         if (index === 0 && Object.keys(viewDetails.content).length > 1) {
             if (viewDetails.content[newItemID].previous)
-                console.log(`Warning: First item ${newItemID} in ${componentID} had a previous element ${viewDetails.content[newItemID].previous}`);
+                store.reporter.warn(`First item ${newItemID} in ${componentID} had a previous element ${viewDetails.content[newItemID].previous}`);
             viewDetails.content[newItemID].previous = Object.keys(viewDetails.content).at(-2);
 
         } else if (viewDetails.content[newItemID].previous) {

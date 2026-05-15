@@ -19,7 +19,7 @@ export default function drawSubcomponent(self, item, layout, id) {
                 shape = drawTrapezoid(x, y, layout, item);
                 break;
             default:
-                console.warn(`Unknown shape: ${item.shape}`);
+                self.reporter.warn(`Unknown shape: ${item.shape}`);
                 return;
         }
 

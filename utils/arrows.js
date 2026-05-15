@@ -70,7 +70,10 @@ export default function drawConnection(self, arrow, previousItem, prevLayout, it
         const startSpec = { direction, xOffset: arrow.xOffset, yOffset: arrow.yOffset };
         const absoluteStartPosition = calculateAbsoluteStartPosition(startSpec, previousItem, prevLayout);
         const absoluteEndPosition = calculateAbsoluteEndPosition(startSpec, item, itemLayout);
-        const layout = computeSegmentLayout(direction, absoluteStartPosition, absoluteEndPosition, 0, true);
+        // Single-arrow path: extraLength is honored (matches pre-refactor behavior where
+        // `segment.end` was only set on the final segment of segmented arrows). The
+        // arrowhead choice is independent and still defaults to drawn.
+        const layout = computeSegmentLayout(direction, absoluteStartPosition, absoluteEndPosition, arrow.extraLength ?? 0, false);
 
         drawSegment(self, arrow, layout, arrow.noHead ?? false, arrowGroup, id, callback);
     }
