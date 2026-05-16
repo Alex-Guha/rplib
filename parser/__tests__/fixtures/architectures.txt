@@ -1,0 +1,33 @@
+test:
+    testText
+    testEverything
+
+testswap:
+    testText:
+        swappable: testSwappable
+    testEverything
+
+testarrows:
+    testSegmentedArrows
+
+llama2_7B_abstract:
+    generics:
+        references:
+            "Llama 2 Transformers Code":
+                authors:
+                    HuggingFace
+                    EleutherAI
+                link: "https://github.com/huggingface/transformers/blob/v4.46.0/src/transformers/models/llama/modeling_llama.py"
+                info: "mock info\nthis can be many lines"
+                refType: Github
+    properties:
+        modelDimension: 4096
+        vocabSize: 32000
+        mlpSize: 11008
+        numDecoderBlocks: 32
+    input
+    tokenization_abstract
+    embedding_abstract
+    decoder_abstract
+    unembedding_abstract
+    output

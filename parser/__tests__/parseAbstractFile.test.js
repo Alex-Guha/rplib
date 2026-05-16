@@ -8,7 +8,7 @@ import { parseAbstractContent } from '../parseAbstractFile.js';
 import serializeAbstractDefinition from '../serializeAbstractFormat.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = join(__dirname, '..', '..', '..');
+const FIXTURES = join(__dirname, 'fixtures');
 
 test('parses a minimal definition', () => {
     const text = [
@@ -47,7 +47,7 @@ test('first-item type inference: object section detected when colon appears late
 });
 
 test('round-trips: parse → serialize → parse is stable', async () => {
-    const text = await readFile(join(REPO_ROOT, 'standard_items', 'architectures.txt'), 'utf8');
+    const text = await readFile(join(FIXTURES, 'architectures.txt'), 'utf8');
     const first = parseAbstractContent(text);
 
     for (const [name, structure] of Object.entries(first)) {

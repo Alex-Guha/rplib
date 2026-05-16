@@ -4,6 +4,9 @@
   "description": "Relational-positioning diagram library: anchor-based DSL with recursive composition and in-place component swap.",
   "type": "module",
   "main": "canvasManager.js",
+  "scripts": {
+    "test": "node --test 'parser/__tests__/*.test.js'"
+  },
   "exports": {
     ".": "./canvasManager.js",
     "./defaults": "./defaults.js",
