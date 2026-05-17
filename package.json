@@ -5,7 +5,7 @@
   "type": "module",
   "main": "canvasManager.js",
   "scripts": {
-    "test": "node --test 'parser/__tests__/*.test.js'"
+    "test": "node --test"
   },
   "exports": {
     ".": "./canvasManager.js",
@@ -18,7 +18,9 @@
   "files": [
     "canvasManager.js",
     "defaults.js",
+    "editHistory.js",
     "layout.js",
+    "mutate.js",
     "renderView.js",
     "viewStore.js",
     "parser",
@@ -26,6 +28,10 @@
     "README.md"
   ],
   "peerDependencies": {
+    "d3": "^7.0.0",
+    "katex": "^0.16.0"
+  },
+  "devDependencies": {
     "d3": "^7.0.0",
     "katex": "^0.16.0"
   },

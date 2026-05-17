@@ -69,6 +69,14 @@ loadRootView(canvas, localStorage, /* fallback view name */ 'my_view');
 | `canvas.invalidateView(name?)` | Drop the cached resolved view (force re-resolve next nav). |
 | `canvas.invalidateLayout(name?, ids?)` | Drop cached layouts (descendants chained via `previous` are auto-invalidated). |
 | `canvas.findHierarchicalElementProperty(id, prop)` | Walk a dotted id from most-specific to least to find an inherited property. |
+| `canvas.getItem(viewName, id)` | Read an item from a resolved view. Returns `null` if missing. |
+| `canvas.updateItem(viewName, id, patch)` | Shallow-merge patch into an item. `null` deletes a key. |
+| `canvas.addItem(viewName, id, item, {before?, after?})` | Insert an item; defaults to appending. |
+| `canvas.removeItem(viewName, id)` / `renameItem(viewName, oldId, newId)` | Remove / rename, rewriting `previous` refs on rename. |
+| `canvas.updateAbstract(name, patch)` / `updateComponent(name, patch)` | Patch authored sources; auto-invalidates cached views. |
+| `canvas.refresh(viewName?)` | Re-resolve + re-render. Not recorded on edit history. |
+| `canvas.undoEdit() / redoEdit() / canEditUndo() / canEditRedo() / clearEditHistory()` | Edit history (separate from nav). |
+| `canvas.on('beforeMutate'\|'afterMutate', fn)` | Lifecycle hooks. Payload `{ viewName, changedIds, kind }`. |
 
 **Adapters** (no global state inside the lib):
 
@@ -82,7 +90,59 @@ loadRootView(canvas, localStorage, /* fallback view name */ 'my_view');
 npm test
 ```
 
-Runs the `node:test`-based parser/serializer round-trip suite under `parser/__tests__/`. Renderer/canvas tests are still TODO.
+Runs the `node:test`-based parser/serializer round-trip suite under `parser/__tests__/` plus the live-update mutation suite under `__tests__/`. Renderer/canvas DOM tests are still TODO.
+
+## Live editing
+
+`canvas.updateItem`, `addItem`, `removeItem`, `renameItem` mutate the cached
+resolved view in place and re-render. `updateAbstract` / `updateComponent`
+patch the authored DSL sources and invalidate the relevant view cache.
+Every mutation pushes an inverse onto the **edit history** (separate from the
+navigation history) — call `canvas.undoEdit() / redoEdit()` to roll edits
+back, independent of `undoViewChange() / redoViewChange()`.
+
+```js
+canvas.changeViews('demo');
+
+// Patch an item.
+canvas.updateItem('demo', 'A', { width: 200, opacity: 0.5 });
+
+// Insert one after an existing anchor.
+canvas.addItem('demo', 'X', { shape: 'box', previous: 'A', position: 'right' }, { after: 'A' });
+
+// Subscribe (e.g. to drive auto-save).
+canvas.on('afterMutate', ({ viewName, changedIds, kind }) => {
+  saveToLocalStorage();
+});
+
+canvas.undoEdit();
+```
+
+Mutations on resolved-view items (`updateItem`, `addItem`, `removeItem`,
+`renameItem`) trigger a **partial redraw**: only the changed ids and their
+`previous`-chain descendants are removed from the SVG and redrawn. Mutations
+on authored sources (`updateAbstract`, `updateComponent`) invalidate the view
+cache and do a full redraw on the next render. Edit history is per-canvas
+and not persisted — subscribe to `'afterMutate'` if you want to serialize
+patches yourself.
+
+**Known limitation:** if item A's `arrow.previous` explicitly references B (not
+A's own `previous`), changing B does not auto-invalidate A's arrow during
+partial redraw. Workaround: include A in your own changed-ids set, or call
+`canvas.refresh()` for a full redraw.
+
+### With a custom `resolveView`
+
+Consumers that bring their own DSL (skip the bundled parser) should use the
+**item-level** mutations only — `getItem`, `updateItem`, `addItem`, `removeItem`,
+`renameItem`. These operate directly on the resolved view in `store.views[name]`
+and don't care where it came from. `updateAbstract` / `updateComponent` are
+bundled-DSL-only and will warn if the name isn't found.
+
+If your custom resolver reads from an external source-of-truth that changes
+outside rplib (e.g. an app store the user edits via their own UI), call
+`canvas.refresh(viewName)` to force a re-resolve + redraw. `refresh` is the
+escape hatch and does **not** record on the edit-history stack.
 
 See [NOTES.md](./NOTES.md) for the architectural assessment and prior-art survey.
 

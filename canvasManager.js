@@ -4,6 +4,14 @@ import drawConnection from "./utils/arrows.js";
 import resetZoom from './utils/zoom.js';
 import renderElements from "./renderView.js";
 import ViewStore from "./viewStore.js";
+import EditHistory from "./editHistory.js";
+import {
+    makeUpdateItemEntry,
+    makeAddItemEntry,
+    makeRemoveItemEntry,
+    makeRenameItemEntry,
+    makeUpdatePatchEntry,
+} from "./mutate.js";
 import { mergeDefaults, LIB_DEFAULT_THEME } from "./defaults.js";
 
 import { parseAbstractDefinition, parseComponentView } from "./parser/parseIntermediateFormat.js";
@@ -69,11 +77,16 @@ export default class RPCanvas {
         this.resolveView = resolveView ?? defaultResolveView;
 
         // Lifecycle hooks. Wrapping apps register via `on(name, fn)` instead of subclassing.
-        // Supported events: 'beforeViewChange', 'afterViewChange'. Payload: { view, prevView }.
-        this.hooks = { beforeViewChange: [], afterViewChange: [] };
+        // Supported events:
+        //   'beforeViewChange' / 'afterViewChange' — navigation. Payload: { view, prevView }.
+        //   'beforeMutate'     / 'afterMutate'     — live edits. Payload: { viewName, changedIds, kind }.
+        this.hooks = { beforeViewChange: [], afterViewChange: [], beforeMutate: [], afterMutate: [] };
 
         // Owns parsed data, view cache, navigation history.
         this.store = new ViewStore();
+
+        // Edit history is separate from navigation history; see editHistory.js.
+        this.editHistory = new EditHistory();
 
         // Error reporter. Apps can swap via setReporter to route lib diagnostics
         // through their own logging/telemetry. Must implement { error, warn }.
@@ -280,9 +293,211 @@ export default class RPCanvas {
         for (const id of idSet) delete this.layouts[viewName][id];
     };
 
-    renderElements() {
-        renderElements(this, this.elementToggleCallback);
+    renderElements(options) {
+        renderElements(this, this.elementToggleCallback, options);
     }
+
+    // === Live-update API ===========================================================
+    //
+    // Mutations on cached resolved views (`updateItem`, `addItem`, `removeItem`,
+    // `renameItem`) edit `store.views[viewName]` in place and re-render. Mutations
+    // on authored sources (`updateAbstract`, `updateComponent`) invalidate the view
+    // cache and re-resolve on next render. Every mutation pushes an inverse onto
+    // `editHistory`; consumers wire UI to `undoEdit` / `redoEdit` (separate from
+    // nav undo/redo). All mutations fire `'beforeMutate'` / `'afterMutate'` hooks
+    // with `{ viewName, changedIds, kind }`. See LIVE_UPDATE_PLAN.md.
+
+    /**
+     * Read an item from a resolved view. Returns null if the view or id is missing.
+     * Used by consumer GUIs to prepopulate edit fields. Selection state itself
+     * lives in the consumer, not in rplib.
+     * @param {string} viewName
+     * @param {string} id
+     */
+    getItem = (viewName, id) => {
+        return this.store.views[viewName]?.content?.[id] ?? null;
+    };
+
+    /**
+     * Shallow-merge `patch` into the item at `viewName.content[id]`. A `null`
+     * value in `patch` deletes that key. Triggers a re-render of the current view
+     * and records the inverse on the edit-history stack.
+     */
+    updateItem = (viewName, id, patch) => {
+        const entry = makeUpdateItemEntry(this.store.views[viewName], viewName, id, patch);
+        if (!entry) {
+            this.reporter.warn(`updateItem: item "${id}" not found in view "${viewName}"`);
+            return;
+        }
+        this._applyMutation(entry);
+    };
+
+    /**
+     * Insert a new item into a resolved view. Use `{ after: id }` or
+     * `{ before: id }` to control insertion order; defaults to appending.
+     */
+    addItem = (viewName, id, item, position = {}) => {
+        const view = this.store.views[viewName];
+        if (!view) {
+            this.reporter.warn(`addItem: view "${viewName}" not found`);
+            return;
+        }
+        if (view.content?.[id]) {
+            this.reporter.warn(`addItem: id "${id}" already exists in "${viewName}"`);
+            return;
+        }
+        this._applyMutation(makeAddItemEntry(view, viewName, id, item, position));
+    };
+
+    /**
+     * Remove an item. The renderer's existing `previous`-chain logic re-flows
+     * dependents on the next render; the consumer is responsible for fixing up
+     * `previous` refs if it wants the descendants to anchor somewhere else.
+     */
+    removeItem = (viewName, id) => {
+        const entry = makeRemoveItemEntry(this.store.views[viewName], viewName, id);
+        if (!entry) {
+            this.reporter.warn(`removeItem: "${id}" not found in "${viewName}"`);
+            return;
+        }
+        this._applyMutation(entry);
+    };
+
+    /**
+     * Rename an item id, rewriting any `previous` / `arrow.previous` references
+     * inside the same view. Other views are not touched.
+     */
+    renameItem = (viewName, oldId, newId) => {
+        const view = this.store.views[viewName];
+        if (!view?.content?.[oldId]) {
+            this.reporter.warn(`renameItem: "${oldId}" not found in "${viewName}"`);
+            return;
+        }
+        if (view.content[newId]) {
+            this.reporter.warn(`renameItem: target "${newId}" already exists in "${viewName}"`);
+            return;
+        }
+        this._applyMutation(makeRenameItemEntry(view, viewName, oldId, newId));
+    };
+
+    /**
+     * Patch an abstract definition (bundled DSL). Invalidates the cached resolved
+     * view so the next render re-runs the resolver. `null` values delete keys.
+     */
+    updateAbstract = (name, patch) => {
+        const def = this.store.abstractDefinitions[name];
+        if (!def) {
+            this.reporter.warn(`updateAbstract: "${name}" not found`);
+            return;
+        }
+        const entry = makeUpdatePatchEntry(def, name, patch, 'updateAbstract', () => this.invalidateView(name));
+        this._applyMutation(entry);
+    };
+
+    /**
+     * Patch a component definition (bundled DSL). V1 invalidates ALL cached
+     * views since determining which views reference the component is non-trivial
+     * — refine later if profiling shows it matters. `null` values delete keys.
+     */
+    updateComponent = (name, patch) => {
+        const comp = this.components?.[name];
+        if (!comp) {
+            this.reporter.warn(`updateComponent: "${name}" not found`);
+            return;
+        }
+        const entry = makeUpdatePatchEntry(comp, this.store.currentView, patch, 'updateComponent', () => this.invalidateView());
+        this._applyMutation(entry);
+    };
+
+    /**
+     * Force a re-resolve + re-render of a view (or the current view if omitted).
+     * Escape hatch for consumers whose source-of-truth mutations don't go through
+     * the rplib mutation API (e.g. custom `resolveView` reading external state).
+     * Does NOT record on the edit-history stack.
+     */
+    refresh = (viewName) => {
+        const target = viewName ?? this.store.currentView;
+        if (!target) return;
+        this.invalidateView(target);
+        if (target === this.store.currentView) this._renderCurrent();
+    };
+
+    /**
+     * Undo the most recent edit. Returns true if anything was undone.
+     */
+    undoEdit = () => {
+        const entry = this.editHistory.popUndo();
+        if (!entry) return false;
+        this._fire('beforeMutate', { viewName: entry.viewName, changedIds: entry.changedIds, kind: entry.kind });
+        entry.undo();
+        if (entry.changedIds) this.invalidateLayout(entry.viewName, entry.changedIds);
+        if (entry.viewName === this.store.currentView || entry.changedIds === null) this._renderCurrent();
+        this._fire('afterMutate', { viewName: entry.viewName, changedIds: entry.changedIds, kind: entry.kind });
+        return true;
+    };
+
+    /**
+     * Redo the most recently undone edit. Returns true if anything was redone.
+     */
+    redoEdit = () => {
+        const entry = this.editHistory.popRedo();
+        if (!entry) return false;
+        this._fire('beforeMutate', { viewName: entry.viewName, changedIds: entry.changedIds, kind: entry.kind });
+        entry.do();
+        if (entry.changedIds) this.invalidateLayout(entry.viewName, entry.changedIds);
+        if (entry.viewName === this.store.currentView || entry.changedIds === null) this._renderCurrent();
+        this._fire('afterMutate', { viewName: entry.viewName, changedIds: entry.changedIds, kind: entry.kind });
+        return true;
+    };
+
+    canEditUndo = () => this.editHistory.canUndo();
+    canEditRedo = () => this.editHistory.canRedo();
+    clearEditHistory = () => this.editHistory.clear();
+
+    // Internal: applies an entry's `do`, invalidates layout for the changed ids,
+    // records on edit-history, fires hooks, and re-renders if the current view is
+    // affected. Edit-history records the entry as-is (no inversion); `undoEdit`
+    // pops and calls `entry.undo` directly.
+    _applyMutation(entry) {
+        this._fire('beforeMutate', { viewName: entry.viewName, changedIds: entry.changedIds, kind: entry.kind });
+        entry.do();
+        if (entry.changedIds) this.invalidateLayout(entry.viewName, entry.changedIds);
+        this.editHistory.record(entry);
+        if (entry.changedIds === null) {
+            // Abstract/component patches: view cache was nuked; force a full redraw.
+            this._renderCurrent();
+        } else if (entry.viewName === this.store.currentView) {
+            this._renderCurrent(entry.changedIds);
+        }
+        this._fire('afterMutate', { viewName: entry.viewName, changedIds: entry.changedIds, kind: entry.kind });
+    }
+
+    // Internal: re-render the current view without touching nav history or zoom.
+    // Re-resolves the view if it was invalidated (e.g. by updateAbstract). If
+    // `onlyIds` is provided, runs the partial-redraw path (no clearCanvas, just
+    // surgical DOM removal + selective redraw of those ids and their descendants).
+    _renderCurrent(onlyIds) {
+        const cur = this.store.currentView;
+        if (!cur) return;
+        if (!this.store.views[cur]) {
+            const resolved = this.resolveView(this, cur);
+            if (resolved) {
+                this.store.views[cur] = resolved.view;
+                if (resolved.isRoot) this.store.rootViews.add(cur);
+            } else {
+                this.reporter.warn(`_renderCurrent: could not re-resolve "${cur}"`);
+                return;
+            }
+        }
+        if (onlyIds) {
+            this.renderElements({ onlyIds });
+        } else {
+            this.clearCanvas();
+            this.renderElements();
+        }
+    }
+
+    // === end live-update API =======================================================
 
     /**
      * Walk an item id from most-specific to least-specific (split on `.`) and

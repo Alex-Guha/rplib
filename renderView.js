@@ -16,7 +16,13 @@ class RenderToken {
 //   - renderDelay: staggered via requestAnimationFrame so the user sees the
 //     graph build up. The stagger is purely presentational and could move to
 //     a separate module if a third strategy ever shows up.
-export default function renderElements(self, elementToggleCallback) {
+//
+// Partial redraw: pass `{ onlyIds }` to surgically redraw a subset. The
+// renderer removes the existing DOM for those ids (plus any items chained
+// to them via `previous`) and redraws only that set. The caller must NOT
+// clearCanvas() first — the unchanged DOM must survive. See PR2 in
+// LIVE_UPDATE_PLAN.md.
+export default function renderElements(self, elementToggleCallback, { onlyIds } = {}) {
     if (!self.store.views[self.store.currentView]) return;
     const elements = self.store.views[self.store.currentView].content;
     if (!elements) return;
@@ -28,6 +34,29 @@ export default function renderElements(self, elementToggleCallback) {
     const viewName = self.store.currentView;
     if (!self.layouts[viewName]) self.layouts[viewName] = {};
     const viewLayout = self.layouts[viewName];
+
+    // For a partial pass: expand onlyIds with descendants chained via `previous`
+    // (same rule the layout cache uses), then remove the existing DOM for that
+    // set so the redraw lands on a clean slate. Items in the set that no longer
+    // exist in content (e.g. a removeItem target) get only the DOM removal.
+    let drawSet = null;
+    if (onlyIds) {
+        drawSet = new Set(onlyIds);
+        let added = true;
+        while (added) {
+            added = false;
+            for (const [id, item] of Object.entries(elements)) {
+                if (!drawSet.has(id) && item.previous && drawSet.has(item.previous)) {
+                    drawSet.add(id);
+                    added = true;
+                }
+            }
+        }
+        for (const id of drawSet) {
+            const escaped = String(id).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            self.canvasDOM.selectAll(`[id="${escaped}"], [id^="${escaped}."]`).remove();
+        }
+    }
 
     const drawItem = (id, item) => {
         if (token.cancelled) return;
@@ -67,7 +96,9 @@ export default function renderElements(self, elementToggleCallback) {
         }
     };
 
-    const entries = Object.entries(elements);
+    const entries = drawSet
+        ? Object.entries(elements).filter(([id]) => drawSet.has(id))
+        : Object.entries(elements);
     if (self.renderDelay) {
         scheduleStaggered(entries, drawItem, token);
     } else {
