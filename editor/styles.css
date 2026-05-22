@@ -1,0 +1,390 @@
+:root {
+    --background-color: #1e1e1e;
+    --text-default-color: #e0e0e0;
+    --svg-background-color: #2a2a2a;
+    --info-background-color: #2a2a2a;
+    --reference-background-color: #2a2a2a;
+
+    --shape-fill-color: #3a3a3a;
+    --shape-stroke-color: #555;
+    --shape-hover-fill-color: #4a4a4a;
+    --opacity: 0.5;
+
+    --arrow-color: #444;
+
+    --link-color: #00ffff;
+
+    --button-fill-color: #3a3a3a;
+    --button-border-color: #555;
+    --button-symbol-color: #e0e0e0;
+    --button-hover-fill-color: #4a4a4a;
+    --button-hover-symbol-color: #ffffff;
+    --disabled-button-fill-color: #2a2a2a;
+    --disabled-button-border-color: #3a3a3a;
+    --disabled-button-symbol-color: #4a4a4a;
+
+    --slider-background-color: #d0d0d0;
+    --slider-button-color: #3a3a3a;
+    --slider-checked-color: #00c0c0;
+
+    --scrollbar-background-color: #f1f1f1;
+    --scrollbar-button-color: #888;
+    --scrollbar-hover-color: #555;
+}
+
+body {
+    font-family: "Quicksand", sans-serif;
+    font-weight: 350;
+    background-color: var(--background-color);
+    color: var(--text-default-color);
+    margin: 0;
+    transition: all 0.3s ease;
+}
+
+#main-container {
+    display: flex;
+    flex-direction: row;
+    height: 98vh;
+    gap: 10px;
+    padding: 10px;
+    min-height: 500px;
+    position: relative;
+}
+
+#svg {
+    flex-grow: 1;
+    border-radius: 10px;
+    padding: 10px;
+    background-color: var(--svg-background-color);
+    cursor: move;
+    min-width: 450px;
+    transition: all 0.3s ease;
+}
+
+#sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 30%;
+    min-width: 300px;
+    gap: 10px;
+}
+
+#info {
+    height: 70%;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    font-size: 16px;
+    line-height: 1.5;
+    border-radius: 10px;
+    overflow-y: auto;
+    background-color: var(--info-background-color);
+    transition: all 0.3s ease;
+}
+
+#references {
+    height: 30%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    padding: 10px 10px 10px 15px;
+    background-color: var(--reference-background-color);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+#references h3 {
+    color: var(--text-default-color);
+    margin: 0;
+    transition: all 0.3s ease;
+}
+
+#references-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    list-style-type: none;
+    overflow-y: auto;
+
+    margin: 0;
+    padding: 0;
+}
+
+#references-list a {
+    color: var(--text-default-color);
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+#references-list a:hover {
+    color: var(--link-color);
+    text-decoration: underline;
+    transition: all 0.3s ease;
+}
+
+.switch-container {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 30px;
+    height: 18px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--slider-background-color);
+    -webkit-transition: .4s ease;
+    transition: .4s ease;
+    border-radius: 18px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 2px;
+    bottom: 2px;
+    background-color: var(--slider-button-color);
+    -webkit-transition: .4s ease;
+    transition: .4s ease;
+    border-radius: 50%;
+}
+
+input:checked+.slider {
+    background-color: var(--slider-checked-color);
+    transition: all 0.3s ease;
+}
+
+input:focus+.slider {
+    box-shadow: 0 0 1px var(--slider-checked-color);
+    transition: all 0.3s ease;
+}
+
+input:checked+.slider:before {
+    -webkit-transform: translateX(12px);
+    -ms-transform: translateX(12px);
+    transform: translateX(12px);
+}
+
+.nav-button {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.nav-button rect,
+.nav-button path {
+    transition: all 0.3s ease;
+}
+
+.clickable {
+    cursor: pointer;
+}
+
+.latex-label:hover {
+    cursor: default;
+}
+
+.latex-label[data-link]:hover {
+    cursor: pointer;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--scrollbar-background-color);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-button-color);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-hover-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+select {
+    appearance: none;
+    border: 0;
+    font: inherit;
+    text-align: center;
+    padding-bottom: 2px;
+    background: var(--shape-fill-color);
+    color: var(--text-default-color);
+    border-radius: 18px;
+    cursor: pointer;
+    height: 24px;
+    flex-grow: 1;
+    transition: all 0.3s ease;
+
+    &:focus {
+        outline: none;
+    }
+}
+
+/*
+option:checked {
+    background-color: green;
+}
+*/
+
+button {
+    font: inherit;
+    border: 0;
+    text-align: center;
+    height: 30px;
+    background-color: var(--button-fill-color);
+    color: var(--text-default-color);
+    border-radius: 15px;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.3s ease;
+
+    &:hover {
+        background-color: var(--button-hover-fill-color);
+    }
+}
+
+.edit-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    justify-content: center;
+    flex-grow: 1;
+    padding: 0 10px;
+}
+
+/* TODO Play with some other styling ideas for these buttons */
+.edit-button {
+    height: 20%;
+    border-radius: 10px;
+    width: 100%;
+}
+
+textarea {
+    flex-grow: 1;
+    border: 0;
+    font: inherit;
+    background-color: var(--shape-fill-color);
+    color: var(--text-default-color);
+    border-radius: 10px;
+    padding: 10px;
+    resize: none;
+    overflow-wrap: normal;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+
+    &:focus {
+        outline: none;
+    }
+}
+
+.view-title {
+    padding-bottom: 4px;
+    margin-bottom: 8px;
+    font-size: 1.2em;
+    text-align: center;
+    border-bottom: 2px solid var(--shape-fill-color);
+    transition: all 0.3s ease;
+}
+
+.view-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.view-item {
+    cursor: pointer;
+    display: flex;
+    padding-left: 5px;
+
+    &:hover {
+        background-color: var(--shape-fill-color);
+    }
+}
+
+.expand-icon {
+    cursor: pointer;
+    margin: 4px;
+    color: var(--text-default-color);
+    font-size: 0.6em;
+    transition: transform 0.2s ease-in-out;
+    transform: rotate(90deg);
+}
+
+.view-children {
+    display: flex;
+    flex-direction: column;
+    padding-left: 9px;
+    margin-left: 13px;
+    border-left: 2px solid var(--shape-fill-color);
+    transition: all 0.3s ease;
+}
+
+#github-button {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 32px;
+    height: 32px;
+    background-color: var(--button-fill-color);
+    border: 1px solid var(--button-border-color);
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1000;
+    color: var(--button-symbol-color);
+    text-decoration: none;
+    transition: all 0.3s ease;
+
+    &:hover {
+        background-color: var(--button-hover-fill-color);
+        color: var(--button-hover-symbol-color);
+    }
+}
+
+#github-button svg {
+    width: 24px;
+    height: 24px;
+}
+
+#content rect:hover,
+#content polygon:hover {
+    fill: var(--shape-hover-fill-color);
+}
+
+.force-hover {
+    fill: var(--shape-hover-fill-color) !important;
+}

@@ -1,0 +1,29 @@
+{
+  "name": "rplib-editor",
+  "version": "0.1.0",
+  "description": "Generic diagram-editor UI built on top of rplib.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./styles.css": "./styles.css"
+  },
+  "files": [
+    "index.js",
+    "instance.js",
+    "appManager.js",
+    "defaults.js",
+    "themes.js",
+    "styles.css",
+    "core",
+    "sidebarMenu",
+    "utils",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "rplib": "^0.1.0",
+    "d3": "^7.0.0",
+    "katex": "^0.16.0"
+  },
+  "license": "ISC"
+}
