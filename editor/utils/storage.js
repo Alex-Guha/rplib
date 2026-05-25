@@ -21,6 +21,13 @@ function writeCustomComponents(storage, map) {
 // pending-rename marker left by an interrupted rename: the stale key is
 // dropped before merging so a crashed rename can't resurrect a ghost.
 export function loadCustomComponents(canvas, storage) {
+    // Hosts often pass an ES-module namespace as `components` (frozen by spec),
+    // so any write into it throws. Replace with a mutable shallow copy before
+    // merging persisted custom components or letting the component editor
+    // install new ones. RPCanvas reads the reference each time, so reassigning
+    // canvas.components is safe.
+    canvas.components = { ...canvas.components };
+
     const saved = readCustomComponents(storage);
     const pending = storage.getItem(PENDING_RENAME_KEY);
     if (pending && saved[pending]) {

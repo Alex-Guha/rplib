@@ -11,6 +11,8 @@ export function initSidebar() {
 
 // Resets the sidebar to its default state
 export function resetSidebar() {
+    // Component-edit mode owns the sidebar — background clicks shouldn't clear it.
+    if (componentEditState.active) return;
     setSidebarState(null);
     updateInfo('');
     updateReferences();

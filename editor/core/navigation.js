@@ -1,6 +1,7 @@
 import { showEditOptions } from '../sidebarMenu/editMenu.js';
 import { showViews } from '../sidebarMenu/viewMenu.js';
 import { createSettings } from '../sidebarMenu/settingsMenu.js';
+import { showInfoOverlay } from './infoOverlay.js';
 import { displayError } from '../utils/error.js';
 import { setSidebarState } from '../utils/state.js'
 
@@ -73,7 +74,7 @@ export const drawNavigation = () => {
     drawButton('edit-button', 250, svg_paths.edit, showEditOptions, true);
     // TODO Move these to the right corner of the content area
     drawButton('settings-button', 200, svg_paths.settings, createSettings, true);
-    drawButton('info-button', 300, svg_paths.info, showViews, true); //TODO info overlay
+    drawButton('info-button', 300, svg_paths.info, showInfoOverlay, true);
 };
 
 function drawButton(id, x, shape, clickHandler, isEnabled) {

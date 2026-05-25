@@ -1,13 +1,13 @@
 import { navigateTo } from '../core/navigation.js';
 import { updateInfo } from '../core/sidebar.js';
 import { displayError } from '../utils/error.js';
-import { setSidebarState } from '../utils/state.js'
+import { setSidebarState, componentEditState } from '../utils/state.js'
 
 import { appManager } from '../instance.js';
 import { parseAbstractContent } from 'rplib/parser/parseAbstractFile.js';
 import serializeAbstractDefinition from 'rplib/parser/serializeAbstractFormat.js';
 import { saveAbstractDefinitions } from 'rplib/parser/storage.js';
-import { enterComponentMode } from './componentEditor.js';
+import { enterComponentMode, exitComponentMode } from './componentEditor.js';
 
 // ==========================
 // Edit Menu Functions
@@ -16,6 +16,12 @@ import { enterComponentMode } from './componentEditor.js';
 // Handles the click event for the nav edit button
 export const showEditOptions = (event) => {
     event.stopPropagation();
+
+    // Clicking the edit nav button while in component-edit mode toggles out.
+    if (componentEditState.active) {
+        exitComponentMode();
+        return;
+    }
 
     const infoElement = document.getElementById('info');
     infoElement.innerHTML = '';

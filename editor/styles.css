@@ -69,6 +69,30 @@ body {
     gap: 10px;
 }
 
+#info-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    border-radius: 10px;
+}
+
+.info-overlay-panel {
+    background-color: rgba(42, 42, 42, 0.85);
+    color: var(--text-default-color);
+    padding: 30px 40px;
+    border-radius: 10px;
+    max-width: 70%;
+    max-height: 70%;
+    overflow-y: auto;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
 #info {
     height: 70%;
     display: flex;

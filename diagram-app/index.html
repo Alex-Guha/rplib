@@ -5,7 +5,6 @@
     <title>rplib Diagram App</title>
 
     <link rel="stylesheet" href="./node_modules/rplib-editor/styles.css">
-    <script type="module" src="main.js"></script>
 
     <!-- Font -->
     <link rel="stylesheet" href="./lib/fonts/quicksand.css">
@@ -16,7 +15,7 @@
     <!-- CodeMirror -->
     <link rel="stylesheet" href="./node_modules/codemirror/lib/codemirror.css">
 
-    <!-- Import Map -->
+    <!-- Import Map (must be declared before any module script that uses bare specifiers; Firefox enforces this strictly) -->
     <script type="importmap">
     {
         "imports": {
@@ -30,6 +29,8 @@
         }
     }
     </script>
+
+    <script type="module" src="main.js"></script>
 </head>
 
 <body>
