@@ -4,7 +4,7 @@ import { loadAbstractDefinitions } from 'rplib/parser/storage.js';
 import AppManager from './appManager.js';
 import { setAppManager, appManager } from './instance.js';
 import { initSidebar } from './core/sidebar.js';
-import { loadSettings } from './utils/storage.js';
+import { loadSettings, loadCustomComponents } from './utils/storage.js';
 
 /**
  * Boot the rplib-editor UI.
@@ -25,6 +25,7 @@ export async function createEditor({ components, dataSource, labels, themes }) {
 
     initSidebar();
     loadSettings();
+    loadCustomComponents(manager.canvas, localStorage);
 
     try {
         manager.canvas.store.abstractDefinitions = typeof dataSource === 'string'

@@ -7,6 +7,7 @@ import { appManager } from '../instance.js';
 import { parseAbstractContent } from 'rplib/parser/parseAbstractFile.js';
 import serializeAbstractDefinition from 'rplib/parser/serializeAbstractFormat.js';
 import { saveAbstractDefinitions } from 'rplib/parser/storage.js';
+import { enterComponentMode } from './componentEditor.js';
 
 // ==========================
 // Edit Menu Functions
@@ -26,7 +27,7 @@ export const showEditOptions = (event) => {
     const options = [
         { id: 'edit-architecture', text: `Edit current ${lower}` },
         { id: 'new-architecture', text: `Create new ${lower}` },
-        // XXX { id: 'new-component', text: 'Create new component' }
+        { id: 'new-component', text: 'Create new component' },
     ];
 
     options.forEach(option => {
@@ -145,6 +146,5 @@ function createArchitectureEditor(architectureText = '') {
 }
 
 function handleNewComponent() {
-    console.log('Create new component clicked');
-    // Functionality to be implemented
+    enterComponentMode();
 }

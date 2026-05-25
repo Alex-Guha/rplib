@@ -1,0 +1,17 @@
+{
+  "name": "rplib-diagram-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lightweight in-repo test app for rplib + rplib-editor. Hosts the test components and architectures used to exercise the library. Intended to be browser-testable standalone and deployable to GitHub Pages.",
+  "main": "main.js",
+  "scripts": {
+    "start": "http-server . -c-1"
+  },
+  "dependencies": {
+    "codemirror": "^5.65.20",
+    "d3": "^7.9.0",
+    "katex": "^0.16.27",
+    "rplib": "file:../core",
+    "rplib-editor": "file:../editor"
+  }
+}

@@ -1,6 +1,6 @@
 # rplib-editor
 
-A generic diagram-editor UI built on top of [`rplib`](../core/). You supply components (visual building blocks) and a data source (rplib-DSL abstract definitions); the editor handles canvas wiring, sidebar, navigation, theme switching, and settings persistence to `localStorage`.
+A generic diagram-editor UI built on top of [`rplib`](../core/). You supply components (visual building blocks) and a data source (rplib-DSL abstract definitions — see [DSL.md](./DSL.md)); the editor handles canvas wiring, sidebar, navigation, theme switching, and settings persistence to `localStorage`.
 
 The editor knows nothing about your domain. Labels, theme palettes, and storage are all overridable.
 

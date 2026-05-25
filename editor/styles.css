@@ -388,3 +388,107 @@ textarea {
 .force-hover {
     fill: var(--shape-hover-fill-color) !important;
 }
+
+/* Component editor */
+.component-editor {
+    gap: 10px;
+    overflow-y: auto;
+}
+
+.component-editor .ce-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.component-editor .ce-row textarea,
+.component-editor .ce-row .ce-input {
+    flex-grow: 1;
+    min-width: 0;
+    height: 26px;
+    border: 0;
+    background-color: var(--shape-fill-color);
+    color: var(--text-default-color);
+    border-radius: 8px;
+    padding: 2px 8px;
+    font: inherit;
+}
+
+.component-editor .ce-row textarea.ce-input {
+    height: auto;
+    min-height: 40px;
+    resize: vertical;
+}
+
+.component-editor .ce-label {
+    min-width: 90px;
+    font-size: 0.85em;
+    opacity: 0.85;
+}
+
+.component-editor .ce-meta {
+    gap: 6px;
+}
+
+.component-editor .ce-meta button {
+    flex-grow: 1;
+    height: 26px;
+    border-radius: 8px;
+    padding: 0 10px;
+}
+
+.component-editor .ce-subgroup {
+    border-left: 2px solid var(--shape-fill-color);
+    padding-left: 8px;
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.component-editor .ce-subheading {
+    font-size: 0.9em;
+    opacity: 0.7;
+    margin-bottom: 2px;
+}
+
+.component-editor .ce-entry {
+    background-color: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.component-editor .ce-imported {
+    opacity: 0.85;
+    background-color: rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    padding: 8px;
+}
+
+.component-editor .ce-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background-color: var(--shape-fill-color);
+    font-size: 0.85em;
+    margin-bottom: 6px;
+}
+
+.component-editor .ce-radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.85em;
+    cursor: pointer;
+}
+
+.component-editor button {
+    height: 26px;
+    border-radius: 8px;
+    padding: 0 10px;
+}

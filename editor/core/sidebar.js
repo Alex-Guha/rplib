@@ -1,5 +1,5 @@
 import { navigateTo } from '../core/navigation.js';
-import { setSidebarState } from '../utils/state.js'
+import { setSidebarState, componentEditState } from '../utils/state.js'
 import { appendMultilineText } from '../utils/dom.js';
 
 import { appManager } from '../instance.js';
@@ -89,10 +89,15 @@ export function attachDetailEventListeners(element) {
 // Generic event listener for updating the sidebar
 export function attachElementEventListeners(element) {
     element.on('mouseover', (event) => {
+        if (componentEditState.active) return;
         if (appManager.sidebarState === null) updateSidebar(event);
     })
         .on('click', (event) => {
             event.stopPropagation(); // Prevent the background click
+            if (componentEditState.active && componentEditState.onElementClick) {
+                componentEditState.onElementClick(event);
+                return;
+            }
             setSidebarState('element');
             updateSidebar(event);
             if (element.node().tagName === 'rect' || element.node().tagName === 'polygon') {
@@ -100,6 +105,7 @@ export function attachElementEventListeners(element) {
             }
         })
         .on('mouseout', () => {
+            if (componentEditState.active) return;
             if (appManager.sidebarState === null) resetSidebar();
         })
         .style('cursor', 'pointer');
