@@ -53,6 +53,15 @@ export function removeCustomComponent(name, storage) {
     writeCustomComponents(storage, saved);
 }
 
+export function clearCustomComponents(storage) {
+    storage.removeItem(CUSTOM_COMPONENTS_KEY);
+    storage.removeItem(PENDING_RENAME_KEY);
+}
+
+export function getAllCustomComponents(storage) {
+    return readCustomComponents(storage);
+}
+
 export function setPendingRename(oldName, storage) {
     storage.setItem(PENDING_RENAME_KEY, oldName);
 }

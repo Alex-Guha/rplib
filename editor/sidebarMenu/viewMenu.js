@@ -32,6 +32,10 @@ export const showViews = (event) => {
 
     Object.keys(appManager.canvas.store.abstractDefinitions).forEach(architecture => {
         if (architecture === appManager.canvas.store.rootView) return;
+        // The component editor mounts a transient abstract definition to host
+        // the in-progress component; it isn't a real architecture and shouldn't
+        // appear in the navigable list.
+        if (architecture.startsWith('__')) return;
         const architectureName = document.createElement('div');
         architectureName.textContent = adjustName(architecture);
         architectureName.className = 'view-item';

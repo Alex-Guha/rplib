@@ -12,10 +12,12 @@ export const componentEditState = {
     target: null,               // content-key inside componentDef.content, or null for component-level
     targetIsImported: false,    // true when clicked element belongs to an imported component reference
     targetElementId: null,      // raw rendered id (for highlight management)
+    importedGroupPrefix: null,  // when target is imported, the component name to highlight as a group
     previousRootView: null,     // view to restore on exit
     isSeed: true,               // tracks "pristine seed vs user-modified"
     pendingRenameFrom: null,    // see componentEditor.js rename flow
     onElementClick: null,       // intercept hook used by core/sidebar.js
+    onBackgroundClick: null,    // intercept hook used by core/sidebar.js
     autosaveUnsubscribe: null,  // no-op cleanup token (canvas has no `off`); see componentEditor.js
 };
 

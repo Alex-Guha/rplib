@@ -413,10 +413,38 @@ textarea {
     fill: var(--shape-hover-fill-color) !important;
 }
 
+/* Targeted item in component-edit mode: bright accent + glow makes it
+   unmistakable against the dim editor canvas. */
+#content rect.component-edit-target,
+#content polygon.component-edit-target {
+    fill: #4d8cff !important;
+    stroke: #ffd24a !important;
+    stroke-width: 3px !important;
+    filter: drop-shadow(0 0 6px #ffd24a);
+}
+
+/* Group highlight for all items belonging to the same imported component —
+   weaker than the primary target so the boundary reads as "this whole chunk
+   is one import," not as "this individual item is selected." */
+#content rect.component-edit-target-group,
+#content polygon.component-edit-target-group {
+    fill: #4d8cff !important;
+    stroke: #ffd24a !important;
+    stroke-width: 2px !important;
+    stroke-dasharray: 4 3 !important;
+    opacity: 0.75;
+}
+
 /* Component editor */
 .component-editor {
-    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    padding: 0 10px;
     overflow-y: auto;
+    /* .edit-container centers its children — fine for the 2-3-button menu, but
+       for our tall form that clips the top of the first row. */
+    justify-content: flex-start;
 }
 
 .component-editor .ce-row {
@@ -425,6 +453,7 @@ textarea {
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+    margin-bottom: 5px;
 }
 
 .component-editor .ce-row textarea,
@@ -456,11 +485,48 @@ textarea {
     gap: 6px;
 }
 
-.component-editor .ce-meta button {
-    flex-grow: 1;
+.advanced-row {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.advanced-row button {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.ce-export-button {
+    width: 100%;
+    /* The form container above grows to fill #info, so a fixed margin gives
+       breathing room between the last form button and Export. */
+    margin-top: 10px;
+    flex-shrink: 0;
+}
+
+.component-editor .ce-separator {
+    width: 100%;
+    border: 0;
+    border-top: 1px solid var(--shape-fill-color);
+    margin: 4px 0;
+}
+
+.component-editor .ce-meta button,
+.component-editor .ce-meta .ce-import-select {
+    flex: 1 1 0;
+    min-width: 0;
     height: 26px;
     border-radius: 8px;
     padding: 0 10px;
+}
+
+.component-editor .ce-import-select {
+    /* The global `select` rule sets a different background/height; align with
+       buttons in the meta row so the import affordance reads as one of them. */
+    background: var(--button-fill-color);
+    text-align: center;
+    cursor: pointer;
 }
 
 .component-editor .ce-subgroup {

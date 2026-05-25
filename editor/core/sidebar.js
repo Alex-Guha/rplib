@@ -11,8 +11,19 @@ export function initSidebar() {
 
 // Resets the sidebar to its default state
 export function resetSidebar() {
-    // Component-edit mode owns the sidebar — background clicks shouldn't clear it.
-    if (componentEditState.active) return;
+    // In component-edit mode, background clicks deselect the current target
+    // and surface the component-level form instead of wiping the panel.
+    // Clear sidebarState so any open menu nav button (settings/views) drops
+    // its highlight — the edit button is pinned separately while active.
+    if (componentEditState.active) {
+        componentEditState.target = null;
+        componentEditState.targetIsImported = false;
+        componentEditState.targetElementId = null;
+        componentEditState.importedGroupPrefix = null;
+        setSidebarState(null);
+        componentEditState.onBackgroundClick?.();
+        return;
+    }
     setSidebarState(null);
     updateInfo('');
     updateReferences();

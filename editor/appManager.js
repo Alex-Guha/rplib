@@ -37,8 +37,14 @@ export default class AppManager {
         this.canvas.on('beforeViewChange', ({ view, prevView }) => {
             if (view !== prevView) initializeSettings(view);
         });
-        this.canvas.on('afterViewChange', () => {
-            saveRootView(this.canvas, localStorage);
+        this.canvas.on('afterViewChange', ({ view }) => {
+            // Skip persistence for editor-internal transient views (e.g. the
+            // component-editor's `__component_editor__` wrapper). They reference
+            // runtime-only components that wouldn't exist on the next boot, so
+            // restoring them as a root view would land on a broken page.
+            if (!view || !view.startsWith('__')) {
+                saveRootView(this.canvas, localStorage);
+            }
             drawNavigation();
             resetSidebar();
         });

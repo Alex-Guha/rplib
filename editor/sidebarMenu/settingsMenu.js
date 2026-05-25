@@ -1,5 +1,5 @@
 import { applyTheme, invertTheme } from '../utils/themeUtils.js';
-import { saveSettings } from '../utils/storage.js';
+import { saveSettings, clearCustomComponents, getAllCustomComponents } from '../utils/storage.js';
 import { confirmAction } from '../utils/error.js';
 import { setSidebarState } from '../utils/state.js';
 
@@ -52,6 +52,9 @@ export const createAdvancedSettings = (event) => {
     infoElement.innerHTML = '';
 
     const { singular, plural } = appManager.labels.abstract;
+    const advancedRow = document.createElement('div');
+    advancedRow.className = 'advanced-row';
+
     const clearButton = document.createElement('button');
     clearButton.textContent = `Clear Saved ${plural}`;
     clearButton.addEventListener('click', async () => {
@@ -60,7 +63,31 @@ export const createAdvancedSettings = (event) => {
             window.location.reload();
         }
     });
-    infoElement.appendChild(clearButton);
+    advancedRow.appendChild(clearButton);
+    infoElement.appendChild(advancedRow);
+
+    const componentRow = document.createElement('div');
+    componentRow.className = 'advanced-row';
+
+    const exportAllButton = document.createElement('button');
+    exportAllButton.textContent = 'Export Custom Components';
+    exportAllButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        exportAllCustomComponents();
+    });
+    componentRow.appendChild(exportAllButton);
+
+    const clearComponentsButton = document.createElement('button');
+    clearComponentsButton.textContent = 'Clear Custom Components';
+    clearComponentsButton.addEventListener('click', async () => {
+        if (await confirmAction('Clear Custom Components\nAre you sure you want to clear all custom components?\nThis action cannot be undone.')) {
+            clearCustomComponents(localStorage);
+            window.location.reload();
+        }
+    });
+    componentRow.appendChild(clearComponentsButton);
+
+    infoElement.appendChild(componentRow);
 
     const returnButton = document.createElement('button');
     returnButton.textContent = 'Return';
@@ -71,6 +98,27 @@ export const createAdvancedSettings = (event) => {
     });
     infoElement.appendChild(returnButton);
 };
+
+function exportAllCustomComponents() {
+    const map = getAllCustomComponents(localStorage);
+    const names = Object.keys(map);
+    if (names.length === 0) {
+        window.alert('No custom components to export.');
+        return;
+    }
+    const body = names
+        .map(name => `export const ${name} = ${JSON.stringify(map[name], null, 2)};`)
+        .join('\n\n') + '\n';
+    const blob = new Blob([body], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'custom_components.js';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
 
 // Draws the dropdown menu in the settings
 // Currently only written for theme dropdown, would need to be modified for other dropdowns

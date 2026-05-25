@@ -3,11 +3,16 @@ import { showViews } from '../sidebarMenu/viewMenu.js';
 import { createSettings } from '../sidebarMenu/settingsMenu.js';
 import { showInfoOverlay } from './infoOverlay.js';
 import { displayError } from '../utils/error.js';
-import { setSidebarState } from '../utils/state.js'
+import { setSidebarState, componentEditState } from '../utils/state.js'
 
 import { appManager } from '../instance.js';
 
 const navigation = d3.select("#navigation");
+
+// The edit button stays visually pinned for the entire component-edit session,
+// regardless of which sidebar menu (settings / views / etc.) is currently active.
+const isPinnedHover = (buttonId) =>
+    componentEditState.active && buttonId === 'edit-button';
 
 // Handles changing views
 export const navigateTo = (view) => {
@@ -92,7 +97,9 @@ function drawButton(id, x, shape, clickHandler, isEnabled) {
     const states = getButtonStates(isEnabled, config);
 
     // Use hover state if button has persistent hover, otherwise use normal state
-    const initialState = (appManager.sidebarState === id) && isEnabled ? states.hover : states.normal;
+    const initialState = ((appManager.sidebarState === id) || isPinnedHover(id)) && isEnabled
+        ? states.hover
+        : states.normal;
 
     // Button background
     const buttonRect = group.append('rect')
@@ -140,7 +147,7 @@ function drawButton(id, x, shape, clickHandler, isEnabled) {
 
         group.on('mouseout', function () {
             // Only revert hover effect if not in persistent state
-            if (appManager.sidebarState !== id) {
+            if (appManager.sidebarState !== id && !isPinnedHover(id)) {
                 buttonRect.attr('fill', states.normal.fill);
                 buttonIcon
                     .attr('stroke', states.normal.pathStroke)
@@ -161,7 +168,9 @@ export function updateButtonState(buttonId) {
     // updateButtonState only runs for already-drawn (enabled) buttons,
     // so pass isEnabled=true to mirror the live state options.
     const states = getButtonStates(true, getButtonConfig(buttonId));
-    const targetState = (appManager.sidebarState === buttonId) ? states.hover : states.normal;
+    const targetState = ((appManager.sidebarState === buttonId) || isPinnedHover(buttonId))
+        ? states.hover
+        : states.normal;
 
     buttonRect
         .attr('fill', targetState.fill)

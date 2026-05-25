@@ -74,6 +74,7 @@ export function enterComponentMode() {
         const def = canvas.components[currentName];
         if (def) saveCustomComponent(currentName, def, localStorage);
         renderInfoPanel();
+        highlightTarget();
     };
     canvas.on('afterMutate', autosave);
     componentEditState.autosaveUnsubscribe = () => {
@@ -82,6 +83,19 @@ export function enterComponentMode() {
     };
 
     componentEditState.onElementClick = handleElementClick;
+    componentEditState.onBackgroundClick = () => {
+        renderInfoPanel();
+        highlightTarget();
+    };
+    // Delegate clicks at the canvas level so every shape is targetable —
+    // attachElementEventListeners only fires for items that author
+    // description/references, which a bare seed item does not.
+    d3.select('#content').on('click.componentEditor', function (event) {
+        const tag = event.target?.tagName;
+        if (tag !== 'rect' && tag !== 'polygon') return;
+        event.stopPropagation();
+        handleElementClick({ currentTarget: event.target });
+    });
 
     navigateTo(EDITING_VIEW);
     // navigateTo's afterViewChange hook resets the sidebar, so apply our
@@ -102,10 +116,13 @@ export function exitComponentMode() {
     componentEditState.targetIsImported = false;
     componentEditState.targetElementId = null;
     componentEditState.onElementClick = null;
+    componentEditState.onBackgroundClick = null;
     if (componentEditState.autosaveUnsubscribe) componentEditState.autosaveUnsubscribe();
 
     delete canvas.store.abstractDefinitions[EDITING_VIEW];
     canvas.invalidateView(EDITING_VIEW);
+    d3.select('#content').on('click.componentEditor', null);
+    d3.selectAll('.component-edit-target, .component-edit-target-group').classed('component-edit-target component-edit-target-group', false);
 
     setSidebarState(null);
     if (restoreTo && canvas.store.abstractDefinitions[restoreTo]) {
@@ -136,6 +153,7 @@ function handleElementClick(event) {
         if (def?.content && Object.hasOwn(def.content, contentKey) && !def.content[contentKey].component) {
             componentEditState.target = contentKey;
             componentEditState.targetIsImported = false;
+            componentEditState.importedGroupPrefix = null;
             componentEditState.targetElementId = topSegment;
             renderInfoPanel();
             highlightTarget();
@@ -151,27 +169,46 @@ function handleElementClick(event) {
     componentEditState.target = importerKey ?? null;
     componentEditState.targetIsImported = true;
     componentEditState.targetElementId = topSegment;
+    componentEditState.importedGroupPrefix = importedComponentName;
     renderInfoPanel();
-    highlightTarget(importedComponentName);
+    highlightTarget();
 }
 
-function highlightTarget(importedGroupPrefix = null) {
-    d3.selectAll('.force-hover').classed('force-hover', false);
+function highlightTarget() {
+    d3.selectAll('.component-edit-target').classed('component-edit-target', false);
+    d3.selectAll('.component-edit-target-group').classed('component-edit-target-group', false);
     if (!componentEditState.targetElementId) return;
-    if (importedGroupPrefix) {
-        // Group highlight: all items belonging to the imported component
-        d3.selectAll(`#content rect, #content polygon`).each(function () {
-            const id = this.getAttribute('id');
-            if (id && id.startsWith(`${importedGroupPrefix}_`)) {
-                d3.select(this).classed('force-hover', true);
+
+    // The canvas renders via staggered requestAnimationFrame (renderDelay
+    // defaults to true), so the just-added element may not be in the DOM yet
+    // when we land here from an afterMutate callback. Retry across a handful
+    // of frames until it shows up, then apply the class. The expected element
+    // id is captured at scheduling time — if the user re-targets in the
+    // meantime, we bail rather than fight a stale lookup.
+    const expectedId = componentEditState.targetElementId;
+    const expectedImportedGroup = componentEditState.targetIsImported
+        ? componentEditState.importedGroupPrefix
+        : null;
+    let attempts = 0;
+    const apply = () => {
+        if (!componentEditState.active) return;
+        if (componentEditState.targetElementId !== expectedId) return;
+        if (expectedImportedGroup) {
+            const matches = document.querySelectorAll(`#content rect[id^="${expectedImportedGroup}_"], #content polygon[id^="${expectedImportedGroup}_"]`);
+            if (matches.length > 0) {
+                matches.forEach((el) => d3.select(el).classed('component-edit-target-group', true));
+                return;
             }
-        });
-    } else {
-        const el = document.getElementById(componentEditState.targetElementId);
-        if (el && (el.tagName === 'rect' || el.tagName === 'polygon')) {
-            d3.select(el).classed('force-hover', true);
+        } else {
+            const el = document.getElementById(expectedId);
+            if (el && (el.tagName === 'rect' || el.tagName === 'polygon')) {
+                d3.select(el).classed('component-edit-target', true);
+                return;
+            }
         }
-    }
+        if (++attempts < 30) requestAnimationFrame(apply);
+    };
+    apply();
 }
 
 // === UI render =================================================================
@@ -181,14 +218,92 @@ function renderInfoPanel() {
     info.innerHTML = '';
 
     const container = document.createElement('div');
-    container.className = 'edit-container component-editor';
+    container.className = 'component-editor';
+
+    const meta = renderMetaRows();
+    container.appendChild(meta.importResetRow);
+    container.appendChild(meta.addRemoveRow);
+
+    const separator = document.createElement('hr');
+    separator.className = 'ce-separator';
+    container.appendChild(separator);
 
     container.appendChild(renderNameRow());
-    container.appendChild(renderMetaRow());
     container.appendChild(renderForm());
-    container.appendChild(renderExportRow());
 
     info.appendChild(container);
+    // Export sits outside the scrollable form container so it stays pinned to
+    // the bottom of #info, mirroring the "Advanced" button in the settings menu.
+    info.appendChild(renderExportButton());
+}
+
+function renderItemIdRow(def) {
+    const row = document.createElement('div');
+    row.className = 'ce-row';
+    const label = document.createElement('label');
+    label.className = 'ce-label';
+    label.textContent = 'id';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = componentEditState.target;
+    input.className = 'ce-input';
+
+    const commit = () => {
+        const newId = input.value.trim();
+        const oldId = componentEditState.target;
+        if (newId === oldId) return;
+        const err = validateItemId(newId, oldId, def);
+        if (err) {
+            window.alert(err);
+            input.value = oldId;
+            return;
+        }
+        renameItemKey(oldId, newId);
+    };
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    });
+
+    row.appendChild(label);
+    row.appendChild(input);
+    return row;
+}
+
+function validateItemId(id, oldId, def) {
+    if (!id) return 'id cannot be empty.';
+    if (/_\d+$/.test(id)) return 'id cannot end with _<number> (reserved by parser).';
+    if (id === oldId) return null;
+    if (def?.content && Object.hasOwn(def.content, id)) return `An item named "${id}" already exists.`;
+    return null;
+}
+
+function renameItemKey(oldId, newId) {
+    const name = componentEditState.name;
+    const canvas = appManager.canvas;
+    const def = canvas.components[name];
+    if (!def?.content) return;
+    // Rebuild content preserving insertion order, swapping the key and
+    // rewriting any sibling `previous` / arrow.previous refs that pointed at it.
+    const nextContent = {};
+    for (const [k, v] of Object.entries(def.content)) {
+        const key = k === oldId ? newId : k;
+        const rewritten = { ...v };
+        if (rewritten.previous === oldId) rewritten.previous = newId;
+        if (Array.isArray(rewritten.arrow)) {
+            rewritten.arrow = rewritten.arrow.map(a =>
+                a && a.previous === oldId ? { ...a, previous: newId } : a
+            );
+        } else if (rewritten.arrow && rewritten.arrow.previous === oldId) {
+            rewritten.arrow = { ...rewritten.arrow, previous: newId };
+        }
+        nextContent[key] = rewritten;
+    }
+    canvas.updateComponent(name, { content: nextContent });
+    componentEditState.target = newId;
+    componentEditState.targetElementId = `${name}_${newId}`;
+    renderInfoPanel();
+    highlightTarget();
 }
 
 function renderNameRow() {
@@ -225,13 +340,15 @@ function renderNameRow() {
     return row;
 }
 
-function renderMetaRow() {
-    const row = document.createElement('div');
-    row.className = 'ce-row ce-meta';
+function renderMetaRows() {
+    const importResetRow = document.createElement('div');
+    importResetRow.className = 'ce-row ce-meta';
 
-    const importBtn = document.createElement('button');
-    importBtn.textContent = componentEditState.isSeed ? 'Import component' : 'Insert component reference';
-    importBtn.addEventListener('click', (e) => { e.stopPropagation(); openImportChooser(); });
+    const hasNativeTarget = componentEditState.target && !componentEditState.targetIsImported;
+    const importLabel = componentEditState.isSeed
+        ? 'Import component'
+        : (hasNativeTarget ? 'Insert component' : 'Add component at end');
+    const importSelect = renderImportSelect(importLabel);
 
     const resetBtn = document.createElement('button');
     resetBtn.textContent = 'Reset';
@@ -242,48 +359,30 @@ function renderMetaRow() {
         resetToSeed();
     });
 
-    const addItemBtn = document.createElement('button');
-    addItemBtn.textContent = 'Add item after target';
-    addItemBtn.disabled = !componentEditState.target || componentEditState.targetIsImported;
-    addItemBtn.addEventListener('click', (e) => { e.stopPropagation(); addItemAfterTarget(); });
+    importResetRow.appendChild(importSelect);
+    importResetRow.appendChild(resetBtn);
 
-    const removeBtn = document.createElement('button');
-    removeBtn.textContent = 'Remove target';
+    const addRemoveRow = document.createElement('div');
+    addRemoveRow.className = 'ce-row ce-meta';
+
+    const addItemBtn = document.createElement('button');
+    addItemBtn.textContent = hasNativeTarget ? 'Add item after target' : 'Add item at end';
+    addItemBtn.disabled = componentEditState.targetIsImported;
+    addItemBtn.addEventListener('click', (e) => { e.stopPropagation(); addItemAfterTarget(); });
+    addRemoveRow.appendChild(addItemBtn);
+
     const def = appManager.canvas.components[componentEditState.name];
     const contentKeys = def?.content ? Object.keys(def.content) : [];
-    removeBtn.disabled = !componentEditState.target || componentEditState.targetIsImported || contentKeys.length <= 1;
-    removeBtn.addEventListener('click', (e) => { e.stopPropagation(); removeTarget(); });
+    // Only render Remove when it would actually do something — disabled is the
+    // wrong affordance in the no-target / single-item cases.
+    if (componentEditState.target && !componentEditState.targetIsImported && contentKeys.length > 1) {
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'Remove target';
+        removeBtn.addEventListener('click', (e) => { e.stopPropagation(); removeTarget(); });
+        addRemoveRow.appendChild(removeBtn);
+    }
 
-    const editCompBtn = document.createElement('button');
-    editCompBtn.textContent = componentEditState.target === null ? 'Edit item' : 'Edit component';
-    editCompBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (componentEditState.target === null) {
-            const firstKey = contentKeys[0];
-            componentEditState.target = firstKey;
-            componentEditState.targetIsImported = !!def?.content?.[firstKey]?.component;
-            componentEditState.targetElementId = `${componentEditState.name}_${firstKey}`;
-        } else {
-            componentEditState.target = null;
-            componentEditState.targetIsImported = false;
-            componentEditState.targetElementId = null;
-        }
-        renderInfoPanel();
-        highlightTarget();
-    });
-
-    row.appendChild(importBtn);
-    row.appendChild(resetBtn);
-    row.appendChild(addItemBtn);
-    row.appendChild(removeBtn);
-    row.appendChild(editCompBtn);
-
-    const exitBtn = document.createElement('button');
-    exitBtn.textContent = 'Exit component editor';
-    exitBtn.addEventListener('click', (e) => { e.stopPropagation(); exitComponentMode(); });
-    row.appendChild(exitBtn);
-
-    return row;
+    return { importResetRow, addRemoveRow };
 }
 
 function renderForm() {
@@ -300,9 +399,9 @@ function renderComponentLevelForm() {
     wrap.appendChild(fieldRow('description', 'textarea', def.description ?? '', (val) => {
         patchComponentLevel({ description: val === '' ? null : val });
     }));
-    wrap.appendChild(fieldRow('details', 'text', def.details ?? '', (val) => {
+    wrap.appendChild(selectRow('details', detailsOptions(def.details), def.details ?? '', (val) => {
         patchComponentLevel({ details: val === '' ? null : val });
-    }));
+    }, 'none'));
     wrap.appendChild(renderReferencesEditor(def.references || []));
 
     // Passthrough JSON editor for unknown top-level keys
@@ -343,6 +442,7 @@ function renderImportedSummary() {
             });
             componentEditState.target = null;
             componentEditState.targetIsImported = false;
+            componentEditState.importedGroupPrefix = null;
             componentEditState.targetElementId = null;
             renderInfoPanel();
         });
@@ -357,6 +457,9 @@ function renderItemLevelForm() {
     wrap.className = 'ce-form';
     const def = appManager.canvas.components[componentEditState.name] || {};
     const item = def.content?.[componentEditState.target] || {};
+
+    // id rename (must come first; everything else patches under the current id)
+    wrap.appendChild(renderItemIdRow(def));
 
     // shape
     wrap.appendChild(selectRow('shape', KNOWN_SHAPES, item.shape ?? 'box', (val) => {
@@ -407,9 +510,9 @@ function renderItemLevelForm() {
     wrap.appendChild(fieldRow('description', 'textarea', item.description ?? '', (val) => {
         patchItem({ description: val === '' ? null : val });
     }));
-    wrap.appendChild(fieldRow('details', 'text', item.details ?? '', (val) => {
+    wrap.appendChild(selectRow('details', detailsOptions(item.details), item.details ?? '', (val) => {
         patchItem({ details: val === '' ? null : val });
-    }));
+    }, 'none'));
 
     // text entries
     wrap.appendChild(renderTextEntries(item));
@@ -642,14 +745,12 @@ function renderReferencesEditor(references) {
     return wrap;
 }
 
-function renderExportRow() {
-    const row = document.createElement('div');
-    row.className = 'ce-row ce-export';
+function renderExportButton() {
     const btn = document.createElement('button');
     btn.textContent = 'Export';
+    btn.className = 'ce-export-button';
     btn.addEventListener('click', (e) => { e.stopPropagation(); exportComponent(); });
-    row.appendChild(btn);
-    return row;
+    return btn;
 }
 
 // === Form primitives ===========================================================
@@ -689,7 +790,7 @@ function numberRow(name, value, onCommit) {
     return row;
 }
 
-function selectRow(name, options, value, onCommit) {
+function selectRow(name, options, value, onCommit, emptyLabel = '(default)') {
     const row = document.createElement('div');
     row.className = 'ce-row';
     const label = document.createElement('label');
@@ -698,7 +799,7 @@ function selectRow(name, options, value, onCommit) {
     const sel = document.createElement('select');
     for (const opt of options) {
         const o = document.createElement('option');
-        o.value = opt; o.textContent = opt === '' ? '(default)' : opt;
+        o.value = opt; o.textContent = opt === '' ? emptyLabel : opt;
         if (opt === value) o.selected = true;
         sel.appendChild(o);
     }
@@ -765,15 +866,23 @@ function addItemAfterTarget() {
     const def = canvas.components[name];
     if (!def?.content) return;
     const newId = uniqueContentKey(def.content, 'item');
-    // Preserve insertion order: walk content, insert after target
+    // With no target (component-level mode) append at the end and anchor on
+    // the last existing key; with a target, splice in immediately after it.
+    const keys = Object.keys(def.content);
+    const anchor = target && keys.includes(target) ? target : keys[keys.length - 1];
     const next = {};
-    for (const [k, v] of Object.entries(def.content)) {
-        next[k] = v;
-        if (k === target) next[newId] = { shape: 'box', previous: target, position: 'right' };
+    if (!anchor) {
+        next[newId] = { shape: 'box' };
+    } else {
+        for (const [k, v] of Object.entries(def.content)) {
+            next[k] = v;
+            if (k === anchor) next[newId] = { shape: 'box', previous: anchor, position: 'right' };
+        }
     }
     canvas.updateComponent(name, { content: next });
     componentEditState.target = newId;
     componentEditState.targetIsImported = false;
+    componentEditState.importedGroupPrefix = null;
     componentEditState.targetElementId = `${name}_${newId}`;
     renderInfoPanel();
     highlightTarget();
@@ -787,11 +896,29 @@ function removeTarget() {
     if (!def?.content) return;
     const keys = Object.keys(def.content);
     if (keys.length <= 1) return;
-    const nextContent = removeKey(def.content, target);
+
+    // Re-anchor any items whose `previous` pointed at the removed item to its
+    // own `previous` (or drop the field entirely if it had none). Without this
+    // the dangling reference breaks layout and the renderer warns about it.
+    const removedPrev = def.content[target]?.previous;
+    const nextContent = {};
+    for (const [k, v] of Object.entries(def.content)) {
+        if (k === target) continue;
+        if (v?.previous === target) {
+            const rewritten = { ...v };
+            if (removedPrev) rewritten.previous = removedPrev;
+            else delete rewritten.previous;
+            nextContent[k] = rewritten;
+        } else {
+            nextContent[k] = v;
+        }
+    }
+
     canvas.updateComponent(name, { content: nextContent });
     const remaining = Object.keys(nextContent);
     componentEditState.target = remaining[0];
-    componentEditState.targetIsImported = !!def.content[remaining[0]]?.component;
+    componentEditState.targetIsImported = !!nextContent[remaining[0]]?.component;
+    componentEditState.importedGroupPrefix = null;
     componentEditState.targetElementId = `${name}_${remaining[0]}`;
     renderInfoPanel();
     highlightTarget();
@@ -815,12 +942,45 @@ function resetToSeed() {
     highlightTarget();
 }
 
-function openImportChooser() {
+function renderImportSelect(label) {
+    const select = document.createElement('select');
+    select.className = 'ce-import-select';
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = label;
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    select.appendChild(placeholder);
+
+    const choices = Object.keys(appManager.canvas.components)
+        .filter(n => n !== componentEditState.name);
+    if (choices.length === 0) {
+        const none = document.createElement('option');
+        none.disabled = true;
+        none.textContent = '(no components available)';
+        select.appendChild(none);
+    } else {
+        for (const name of choices) {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            select.appendChild(opt);
+        }
+    }
+
+    select.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const choice = select.value;
+        if (!choice) return;
+        importComponent(choice);
+    });
+    return select;
+}
+
+function importComponent(choice) {
     const canvas = appManager.canvas;
-    const choices = Object.keys(canvas.components).filter(n => n !== componentEditState.name);
-    if (choices.length === 0) { window.alert('No other components to import.'); return; }
-    const choice = window.prompt(`Available components:\n${choices.join('\n')}\n\nName:`);
-    if (!choice || !canvas.components[choice]) return;
+    if (!canvas.components[choice]) return;
 
     if (componentEditState.isSeed) {
         // Wholesale replace
@@ -833,6 +993,7 @@ function openImportChooser() {
         const firstKey = Object.keys(cloned.content || {})[0];
         componentEditState.target = firstKey ?? null;
         componentEditState.targetIsImported = false;
+        componentEditState.importedGroupPrefix = null;
         componentEditState.targetElementId = firstKey ? `${componentEditState.name}_${firstKey}` : null;
         componentEditState.isSeed = true;
         renderInfoPanel();
@@ -906,6 +1067,22 @@ function exportComponent() {
 
 // === Helpers ===================================================================
 
+// Components available as a `details` target. The parser's handleDetails path
+// only resolves names that exist in `canvas.components` (architectures in
+// abstractDefinitions aren't supported as detail targets), so the dropdown
+// mirrors that. Excludes the currently-edited component to prevent
+// self-referential cycles, and preserves an out-of-list current value so
+// pre-existing data isn't silently dropped on render.
+function detailsOptions(currentValue) {
+    const opts = new Set(['']);
+    for (const name of Object.keys(appManager.canvas.components)) {
+        if (name === componentEditState.name) continue;
+        opts.add(name);
+    }
+    if (currentValue && !opts.has(currentValue)) opts.add(currentValue);
+    return Array.from(opts);
+}
+
 function normalizeArray(value) {
     if (!value) return [];
     return Array.isArray(value) ? value : [value];
@@ -929,13 +1106,19 @@ function uniqueContentKey(content, base) {
 }
 
 function uniqueComponentName(base) {
+    // IMPORTANT: do not use a `_\d+$` suffix here — the parser strips that
+    // pattern when resolving component refs (parseIntermediateFormat.js:86),
+    // so `new_component_1` would resolve back to `new_component` and pick up
+    // whatever stale definition lives under that name. Letter suffixes are
+    // safe because the strip regex only matches digits.
     const taken = new Set(Object.keys(appManager.canvas.components));
-    let candidate = base;
-    let i = 1;
-    while (taken.has(candidate)) {
-        candidate = `${base}_${i++}`;
+    if (!taken.has(base)) return base;
+    for (let i = 0; i < 26; i++) {
+        const candidate = `${base}_${String.fromCharCode(97 + i)}`;
+        if (!taken.has(candidate)) return candidate;
     }
-    return candidate;
+    // Fall back to a timestamp suffix — extremely unlikely path.
+    return `${base}_t${Date.now()}`;
 }
 
 function validateComponentName(name) {

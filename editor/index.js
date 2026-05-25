@@ -37,8 +37,25 @@ export async function createEditor({ components, dataSource, labels, themes }) {
     }
 
     loadAbstractDefinitions(manager.canvas, localStorage);
+    cleanupTransientEditorState(manager.canvas, localStorage);
 
     return manager;
+}
+
+// Editor-internal views (component editor, etc.) prefix their abstract
+// definitions with `__`. They're transient — restoring them on boot lands the
+// app on a view whose components no longer exist in memory. Strip any that
+// leaked into storage from earlier builds, and clear the saved root view
+// pointer if it referenced one.
+function cleanupTransientEditorState(canvas, storage) {
+    const defs = canvas.store.abstractDefinitions;
+    let removed = false;
+    for (const key of Object.keys(defs)) {
+        if (key.startsWith('__')) { delete defs[key]; removed = true; }
+    }
+    const savedRoot = storage.getItem('rootView');
+    if (savedRoot && savedRoot.startsWith('__')) storage.removeItem('rootView');
+    if (removed) storage.setItem('abstractDefinitions', JSON.stringify(defs));
 }
 
 export { appManager };
