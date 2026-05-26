@@ -5,14 +5,27 @@
 // every change writes through `canvas.updateComponent`.
 
 import { appManager } from '../instance.js';
-import { navigateTo } from '../core/navigation.js';
+import { navigateTo, drawNavigation } from '../core/navigation.js';
 import { setSidebarState, componentEditState } from '../utils/state.js';
+import { SHAPE } from '../defaults.js';
 import {
     saveCustomComponent,
     removeCustomComponent,
     setPendingRename,
     clearPendingRename,
 } from '../utils/storage.js';
+
+// Per-session "advanced mode" flag — gates rarely-used numeric/styling fields.
+// Kept module-local because it's pure view state with no persistence need.
+let advancedMode = false;
+
+// Which SHAPE default each shape-referencing numeric field hangs off of. Drives
+// the percentage / fractional / multiplier shorthand parsing in parseShapeNumeric.
+const SHAPE_FIELD_BASIS = {
+    width: 'width', x: 'width', xSpacing: 'width', xOffset: 'width',
+    height: 'height', y: 'height', ySpacing: 'height', yOffset: 'height',
+    separation: 'separation',
+};
 
 const EDITING_VIEW = '__component_editor__';
 const SEED_CONTENT = () => ({ box: { shape: 'box' } });
@@ -28,7 +41,6 @@ const TEXT_POSITIONS = [
     'left-top', 'left-bottom', 'right-top', 'right-bottom',
 ];
 const ARROW_DIRECTIONS = ['', 'up', 'down', 'left', 'right'];
-const NUMERIC_FIELDS = ['width', 'height', 'count', 'x', 'y', 'xSpacing', 'ySpacing', 'separation'];
 
 // === Lifecycle =================================================================
 
@@ -45,6 +57,7 @@ export function enterComponentMode() {
     componentEditState.previousRootView = canvas.store.rootView || '';
     componentEditState.isSeed = true;
     componentEditState.pendingRenameFrom = null;
+    advancedMode = false;
 
     // Synthesize a transient abstract definition that wraps the component.
     canvas.store.abstractDefinitions[EDITING_VIEW] = {
@@ -53,6 +66,9 @@ export function enterComponentMode() {
     };
     canvas.components[name] = { content: SEED_CONTENT() };
 
+    // Edit-history is repurposed as the in-session undo stack for the arrow
+    // buttons — start fresh so the user can't undo into prior unrelated state.
+    canvas.clearEditHistory();
     canvas.invalidateView(EDITING_VIEW);
 
     // Autosave + seed-flag tracking. canvasManager has no `off` API; we guard
@@ -75,6 +91,8 @@ export function enterComponentMode() {
         if (def) saveCustomComponent(currentName, def, localStorage);
         renderInfoPanel();
         highlightTarget();
+        // Refresh the back/forward arrows' enabled state for the new history depth.
+        drawNavigation();
     };
     canvas.on('afterMutate', autosave);
     componentEditState.autosaveUnsubscribe = () => {
@@ -101,6 +119,9 @@ export function enterComponentMode() {
     // navigateTo's afterViewChange hook resets the sidebar, so apply our
     // sidebar state + render after navigation.
     setSidebarState('edit-button');
+    // Redraw nav so the arrows pick up the edit-mode handlers (afterViewChange
+    // already drew them, but pre-active — at that point they wired to view nav).
+    drawNavigation();
     renderInfoPanel();
     highlightTarget();
 }
@@ -119,14 +140,28 @@ export function exitComponentMode() {
     componentEditState.onBackgroundClick = null;
     if (componentEditState.autosaveUnsubscribe) componentEditState.autosaveUnsubscribe();
 
+    // Restore the user's saved render-delay preference. initializeSettings will
+    // also do this on the navigateTo below, but only if there's a view to
+    // restore to — handle it explicitly so the property is correct either way.
+    const renderDelaySetting = appManager.settings['rendering-delay'];
+    if (renderDelaySetting) canvas.renderDelay = renderDelaySetting.state;
+
     delete canvas.store.abstractDefinitions[EDITING_VIEW];
     canvas.invalidateView(EDITING_VIEW);
     d3.select('#content').on('click.componentEditor', null);
     d3.selectAll('.component-edit-target, .component-edit-target-group').classed('component-edit-target component-edit-target-group', false);
 
     setSidebarState(null);
+    // Edit-history is per-session; drop entries so they can't leak into the
+    // next session (and so consumers like view-nav arrows don't keep stale
+    // canEditUndo/Redo state).
+    canvas.clearEditHistory();
     if (restoreTo && canvas.store.abstractDefinitions[restoreTo]) {
         navigateTo(restoreTo);
+    } else {
+        // No restore view → afterViewChange won't fire, so redraw nav manually
+        // to revert the arrows back to view-navigation handlers.
+        drawNavigation();
     }
 }
 
@@ -228,13 +263,12 @@ function renderInfoPanel() {
     separator.className = 'ce-separator';
     container.appendChild(separator);
 
-    container.appendChild(renderNameRow());
     container.appendChild(renderForm());
 
     info.appendChild(container);
-    // Export sits outside the scrollable form container so it stays pinned to
-    // the bottom of #info, mirroring the "Advanced" button in the settings menu.
-    info.appendChild(renderExportButton());
+    // Export + Advanced toggle sit outside the scrollable form container so
+    // they stay pinned to the bottom of #info.
+    info.appendChild(renderBottomButtons());
 }
 
 function renderItemIdRow(def) {
@@ -396,13 +430,17 @@ function renderComponentLevelForm() {
     wrap.className = 'ce-form';
     const def = appManager.canvas.components[componentEditState.name] || {};
 
+    wrap.appendChild(renderNameRow());
     wrap.appendChild(fieldRow('description', 'textarea', def.description ?? '', (val) => {
         patchComponentLevel({ description: val === '' ? null : val });
     }));
     wrap.appendChild(selectRow('details', detailsOptions(def.details), def.details ?? '', (val) => {
         patchComponentLevel({ details: val === '' ? null : val });
     }, 'none'));
-    wrap.appendChild(renderReferencesEditor(def.references || []));
+    wrap.appendChild(renderReferencesEditor(
+        def.references || [],
+        (next) => patchComponentLevel({ references: next })
+    ));
 
     // Passthrough JSON editor for unknown top-level keys
     const knownKeys = new Set(['content', 'description', 'details', 'references']);
@@ -465,64 +503,74 @@ function renderItemLevelForm() {
     wrap.appendChild(selectRow('shape', KNOWN_SHAPES, item.shape ?? 'box', (val) => {
         patchItem({ shape: val });
     }));
-
-    for (const key of NUMERIC_FIELDS) {
-        wrap.appendChild(numberRow(key, item[key], (val) => patchItem({ [key]: val })));
-    }
-
-    // opacity (slider 0–1)
-    const opacityRow = document.createElement('div');
-    opacityRow.className = 'ce-row';
-    const opLabel = document.createElement('label');
-    opLabel.className = 'ce-label';
-    opLabel.textContent = 'opacity';
-    const op = document.createElement('input');
-    op.type = 'range';
-    op.min = '0'; op.max = '1'; op.step = '0.05';
-    op.value = item.opacity ?? 1;
-    op.addEventListener('input', () => {
-        const v = parseFloat(op.value);
-        patchItem({ opacity: v === 1 ? null : v });
-    });
-    opacityRow.appendChild(opLabel);
-    opacityRow.appendChild(op);
-    wrap.appendChild(opacityRow);
-
-    // flipped (only for trapezoid/triangle)
     if (item.shape === 'trapezoid' || item.shape === 'triangle') {
         wrap.appendChild(checkboxRow('flipped', !!item.flipped, (val) => {
             patchItem({ flipped: val ? true : null });
         }));
     }
-    if (item.shape === 'trapezoid') {
-        wrap.appendChild(numberRow('shortSide', item.shortSide, (val) => patchItem({ shortSide: val })));
-    }
 
+    // -- positioning --
+    wrap.appendChild(sectionSeparator('positioning'));
     wrap.appendChild(selectRow('position', POSITION_OPTIONS, item.position ?? '', (val) => {
         patchItem({ position: val === '' ? null : val });
     }));
-
     const siblingIds = Object.keys(def.content || {}).filter(k => k !== componentEditState.target);
     wrap.appendChild(selectRow('previous', ['', ...siblingIds], item.previous ?? '', (val) => {
         patchItem({ previous: val === '' ? null : val });
     }));
+    if (advancedMode) {
+        wrap.appendChild(pairRow(
+            shapeNumberRow('x', item.x, (val) => patchItem({ x: val })),
+            shapeNumberRow('y', item.y, (val) => patchItem({ y: val })),
+        ));
+    }
 
+    // -- styling --
+    wrap.appendChild(sectionSeparator('styling'));
+    wrap.appendChild(pairRow(
+        shapeNumberRow('width', item.width, (val) => patchItem({ width: val })),
+        shapeNumberRow('height', item.height, (val) => patchItem({ height: val })),
+    ));
+    if (advancedMode) {
+        wrap.appendChild(pairRow(
+            plainNumberRow('count', item.count, (val) => patchItem({ count: val })),
+            opacityRow(item.opacity, (val) => patchItem({ opacity: val })),
+        ));
+        wrap.appendChild(pairRow(
+            shapeNumberRow('xSpacing', item.xSpacing, (val) => patchItem({ xSpacing: val })),
+            shapeNumberRow('ySpacing', item.ySpacing, (val) => patchItem({ ySpacing: val })),
+        ));
+    }
+    wrap.appendChild(shapeNumberRow('separation', item.separation, (val) => patchItem({ separation: val })));
+    if (item.shape === 'trapezoid') {
+        wrap.appendChild(plainNumberRow('shortSide', item.shortSide, (val) => patchItem({ shortSide: val })));
+    }
+
+    // -- content --
+    wrap.appendChild(sectionSeparator('content'));
     wrap.appendChild(fieldRow('description', 'textarea', item.description ?? '', (val) => {
         patchItem({ description: val === '' ? null : val });
     }));
-    wrap.appendChild(selectRow('details', detailsOptions(item.details), item.details ?? '', (val) => {
-        patchItem({ details: val === '' ? null : val });
-    }, 'none'));
-
-    // text entries
-    wrap.appendChild(renderTextEntries(item));
-    // arrow entries
+    if (advancedMode) {
+        wrap.appendChild(selectRow('details', detailsOptions(item.details), item.details ?? '', (val) => {
+            patchItem({ details: val === '' ? null : val });
+        }, 'none'));
+    }
+    wrap.appendChild(renderReferencesEditor(
+        item.references || [],
+        (next) => patchItem({ references: next })
+    ));
+    wrap.appendChild(renderTextEntries(item.text, (next) => patchItem({ text: next })));
     wrap.appendChild(renderArrowEntries(item));
 
     return wrap;
 }
 
-function renderTextEntries(item) {
+// Renders a "Text" subgroup that reads from a text array and writes back via
+// onChange. Same primitive is used for both item.text and arrow[i].text — the
+// rplib data model treats them identically (arrows.js:129 iterates segment.text
+// the same way text on shapes is handled).
+function renderTextEntries(textValue, onChange) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-subgroup';
     const heading = document.createElement('div');
@@ -530,21 +578,22 @@ function renderTextEntries(item) {
     heading.textContent = 'Text';
     wrap.appendChild(heading);
 
-    const entries = normalizeArray(item.text);
-    entries.forEach((entry, idx) => wrap.appendChild(renderTextEntry(entry, idx, entries)));
+    const entries = normalizeArray(textValue);
+    // Empty payload commits as null so consumers don't end up with `text: []`.
+    const commit = (next) => onChange(next && next.length ? next : null);
+    entries.forEach((entry, idx) => wrap.appendChild(renderTextEntry(entry, idx, entries, commit)));
 
     const add = document.createElement('button');
     add.textContent = '+ add text';
     add.addEventListener('click', (e) => {
         e.stopPropagation();
-        const next = [...entries, { text: '' }];
-        patchItem({ text: next });
+        commit([...entries, { text: '' }]);
     });
     wrap.appendChild(add);
     return wrap;
 }
 
-function renderTextEntry(entry, idx, entries) {
+function renderTextEntry(entry, idx, entries, commit) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-entry';
 
@@ -557,13 +606,13 @@ function renderTextEntry(entry, idx, entries) {
         const next = [...entries];
         next[idx] = { ...entry, text: entry.text ?? entry.latexText ?? '' };
         delete next[idx].latexText;
-        patchItem({ text: next });
+        commit(next);
     });
     latexRadio.input.addEventListener('change', () => {
         const next = [...entries];
         next[idx] = { ...entry, latexText: entry.latexText ?? entry.text ?? '' };
         delete next[idx].text;
-        patchItem({ text: next });
+        commit(next);
     });
     modeRow.appendChild(plainRadio.label);
     modeRow.appendChild(latexRadio.label);
@@ -573,37 +622,55 @@ function renderTextEntry(entry, idx, entries) {
     wrap.appendChild(fieldRow(fieldName, 'text', entry[fieldName] ?? '', (val) => {
         const next = [...entries];
         next[idx] = { ...entry, [fieldName]: val };
-        patchItem({ text: next });
+        commit(next);
     }));
     wrap.appendChild(selectRow('position', TEXT_POSITIONS, entry.position ?? '', (val) => {
         const next = [...entries];
         next[idx] = { ...entry };
         if (val === '') delete next[idx].position; else next[idx].position = val;
-        patchItem({ text: next });
+        commit(next);
     }));
-    wrap.appendChild(numberRow('xOffset', entry.xOffset, (val) => {
-        const next = [...entries]; next[idx] = { ...entry };
-        if (val == null) delete next[idx].xOffset; else next[idx].xOffset = val;
-        patchItem({ text: next });
-    }));
-    wrap.appendChild(numberRow('yOffset', entry.yOffset, (val) => {
-        const next = [...entries]; next[idx] = { ...entry };
-        if (val == null) delete next[idx].yOffset; else next[idx].yOffset = val;
-        patchItem({ text: next });
-    }));
-    wrap.appendChild(fieldRow('color', 'text', entry.color ?? '', (val) => {
-        const next = [...entries]; next[idx] = { ...entry };
-        if (val === '') delete next[idx].color;
-        else next[idx].color = isNaN(Number(val)) ? val : Number(val);
-        patchItem({ text: next });
-    }));
+    if (advancedMode) {
+        wrap.appendChild(pairRow(
+            shapeNumberRow('xOffset', entry.xOffset, (val) => {
+                const next = [...entries]; next[idx] = { ...entry };
+                if (val == null) delete next[idx].xOffset; else next[idx].xOffset = val;
+                commit(next);
+            }),
+            shapeNumberRow('yOffset', entry.yOffset, (val) => {
+                const next = [...entries]; next[idx] = { ...entry };
+                if (val == null) delete next[idx].yOffset; else next[idx].yOffset = val;
+                commit(next);
+            }),
+        ));
+        wrap.appendChild(fieldRow('color', 'text', entry.color ?? '', (val) => {
+            const next = [...entries]; next[idx] = { ...entry };
+            if (val === '') delete next[idx].color;
+            else next[idx].color = isNaN(Number(val)) ? val : Number(val);
+            commit(next);
+        }));
+        wrap.appendChild(fieldRow('description', 'textarea', entry.description ?? '', (val) => {
+            const next = [...entries]; next[idx] = { ...entry };
+            if (val === '') delete next[idx].description; else next[idx].description = val;
+            commit(next);
+        }));
+        wrap.appendChild(selectRow('details', detailsOptions(entry.details), entry.details ?? '', (val) => {
+            const next = [...entries]; next[idx] = { ...entry };
+            if (val === '') delete next[idx].details; else next[idx].details = val;
+            commit(next);
+        }, 'none'));
+        wrap.appendChild(renderReferencesEditor(entry.references || [], (refs) => {
+            const next = [...entries]; next[idx] = { ...entry };
+            if (refs && refs.length) next[idx].references = refs; else delete next[idx].references;
+            commit(next);
+        }));
+    }
 
     const remove = document.createElement('button');
     remove.textContent = 'remove';
     remove.addEventListener('click', (e) => {
         e.stopPropagation();
-        const next = entries.filter((_, i) => i !== idx);
-        patchItem({ text: next.length ? next : null });
+        commit(entries.filter((_, i) => i !== idx));
     });
     wrap.appendChild(remove);
     return wrap;
@@ -661,26 +728,50 @@ function renderArrowEntry(entry, idx, entries) {
         if (val === '') delete next[idx].direction; else next[idx].direction = val;
         patchItem({ arrow: next });
     }));
-    wrap.appendChild(numberRow('xOffset', entry.xOffset, (val) => {
+    wrap.appendChild(renderTextEntries(entry.text, (textVal) => {
         const next = [...entries]; next[idx] = { ...entry };
-        if (val == null) delete next[idx].xOffset; else next[idx].xOffset = val;
+        if (textVal == null) delete next[idx].text; else next[idx].text = textVal;
         patchItem({ arrow: next });
     }));
-    wrap.appendChild(numberRow('yOffset', entry.yOffset, (val) => {
-        const next = [...entries]; next[idx] = { ...entry };
-        if (val == null) delete next[idx].yOffset; else next[idx].yOffset = val;
-        patchItem({ arrow: next });
-    }));
-    wrap.appendChild(numberRow('extraLength', entry.extraLength, (val) => {
-        const next = [...entries]; next[idx] = { ...entry };
-        if (val == null) delete next[idx].extraLength; else next[idx].extraLength = val;
-        patchItem({ arrow: next });
-    }));
-    wrap.appendChild(checkboxRow('noHead', !!entry.noHead, (val) => {
-        const next = [...entries]; next[idx] = { ...entry };
-        if (val) next[idx].noHead = true; else delete next[idx].noHead;
-        patchItem({ arrow: next });
-    }));
+    if (advancedMode) {
+        wrap.appendChild(pairRow(
+            shapeNumberRow('xOffset', entry.xOffset, (val) => {
+                const next = [...entries]; next[idx] = { ...entry };
+                if (val == null) delete next[idx].xOffset; else next[idx].xOffset = val;
+                patchItem({ arrow: next });
+            }),
+            shapeNumberRow('yOffset', entry.yOffset, (val) => {
+                const next = [...entries]; next[idx] = { ...entry };
+                if (val == null) delete next[idx].yOffset; else next[idx].yOffset = val;
+                patchItem({ arrow: next });
+            }),
+        ));
+        wrap.appendChild(plainNumberRow('extraLength', entry.extraLength, (val) => {
+            const next = [...entries]; next[idx] = { ...entry };
+            if (val == null) delete next[idx].extraLength; else next[idx].extraLength = val;
+            patchItem({ arrow: next });
+        }));
+        wrap.appendChild(checkboxRow('noHead', !!entry.noHead, (val) => {
+            const next = [...entries]; next[idx] = { ...entry };
+            if (val) next[idx].noHead = true; else delete next[idx].noHead;
+            patchItem({ arrow: next });
+        }));
+        wrap.appendChild(fieldRow('description', 'textarea', entry.description ?? '', (val) => {
+            const next = [...entries]; next[idx] = { ...entry };
+            if (val === '') delete next[idx].description; else next[idx].description = val;
+            patchItem({ arrow: next });
+        }));
+        wrap.appendChild(selectRow('details', detailsOptions(entry.details), entry.details ?? '', (val) => {
+            const next = [...entries]; next[idx] = { ...entry };
+            if (val === '') delete next[idx].details; else next[idx].details = val;
+            patchItem({ arrow: next });
+        }, 'none'));
+        wrap.appendChild(renderReferencesEditor(entry.references || [], (refs) => {
+            const next = [...entries]; next[idx] = { ...entry };
+            if (refs && refs.length) next[idx].references = refs; else delete next[idx].references;
+            patchItem({ arrow: next });
+        }));
+    }
 
     const remove = document.createElement('button');
     remove.textContent = 'remove';
@@ -693,7 +784,7 @@ function renderArrowEntry(entry, idx, entries) {
     return wrap;
 }
 
-function renderReferencesEditor(references) {
+function renderReferencesEditor(references, onChange) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-subgroup';
     const heading = document.createElement('div');
@@ -708,49 +799,70 @@ function renderReferencesEditor(references) {
         keys.forEach((k) => {
             entry.appendChild(fieldRow(k, 'text', String(ref[k] ?? ''), (val) => {
                 const next = references.map((r, i) => i === idx ? { ...r, [k]: val } : r);
-                patchComponentLevel({ references: next });
+                onChange(next);
             }));
         });
-        const addKey = document.createElement('button');
-        addKey.textContent = '+ add field';
-        addKey.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const key = window.prompt('Field name?');
-            if (!key) return;
-            const next = references.map((r, i) => i === idx ? { ...r, [key]: '' } : r);
-            patchComponentLevel({ references: next });
-        });
-        entry.appendChild(addKey);
+        if (advancedMode) {
+            const addKey = document.createElement('button');
+            addKey.textContent = '+ add field';
+            addKey.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const key = window.prompt('Field name?');
+                if (!key) return;
+                const next = references.map((r, i) => i === idx ? { ...r, [key]: '' } : r);
+                onChange(next);
+            });
+            entry.appendChild(addKey);
+        }
 
         const remove = document.createElement('button');
         remove.textContent = 'remove reference';
         remove.addEventListener('click', (e) => {
             e.stopPropagation();
             const next = references.filter((_, i) => i !== idx);
-            patchComponentLevel({ references: next.length ? next : null });
+            onChange(next.length ? next : null);
         });
         entry.appendChild(remove);
         wrap.appendChild(entry);
     });
 
-    const addRef = document.createElement('button');
-    addRef.textContent = '+ add reference';
-    addRef.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const id = window.prompt('Reference id?');
-        if (!id) return;
-        patchComponentLevel({ references: [...references, { id }] });
-    });
-    wrap.appendChild(addRef);
+    if (advancedMode) {
+        const addRef = document.createElement('button');
+        addRef.textContent = '+ add reference';
+        addRef.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = window.prompt('Reference id?');
+            if (!id) return;
+            onChange([...references, { id }]);
+        });
+        wrap.appendChild(addRef);
+    } else if (references.length === 0) {
+        // Don't render an empty subgroup with no affordance to populate it.
+        return document.createDocumentFragment();
+    }
     return wrap;
 }
 
-function renderExportButton() {
-    const btn = document.createElement('button');
-    btn.textContent = 'Export';
-    btn.className = 'ce-export-button';
-    btn.addEventListener('click', (e) => { e.stopPropagation(); exportComponent(); });
-    return btn;
+function renderBottomButtons() {
+    const row = document.createElement('div');
+    row.className = 'ce-bottom-row';
+
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = 'Export';
+    exportBtn.addEventListener('click', (e) => { e.stopPropagation(); exportComponent(); });
+
+    const advBtn = document.createElement('button');
+    advBtn.textContent = 'Advanced';
+    if (advancedMode) advBtn.classList.add('ce-advanced-active');
+    advBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        advancedMode = !advancedMode;
+        renderInfoPanel();
+    });
+
+    row.appendChild(exportBtn);
+    row.appendChild(advBtn);
+    return row;
 }
 
 // === Form primitives ===========================================================
@@ -771,23 +883,109 @@ function fieldRow(name, type, value, onCommit) {
     return row;
 }
 
-function numberRow(name, value, onCommit) {
+// Plain numeric field — text input (no spinner arrows), accepts any number.
+function plainNumberRow(name, value, onCommit) {
     const row = document.createElement('div');
     row.className = 'ce-row';
     const label = document.createElement('label');
     label.className = 'ce-label';
     label.textContent = name;
     const input = document.createElement('input');
-    input.type = 'number';
+    input.type = 'text';
     input.value = value ?? '';
     input.className = 'ce-input';
     input.addEventListener('change', () => {
-        if (input.value === '') onCommit(null);
-        else onCommit(Number(input.value));
+        const raw = input.value.trim();
+        if (raw === '') return onCommit(null);
+        const n = parseFloat(raw);
+        onCommit(isNaN(n) ? null : n);
     });
     row.appendChild(label);
     row.appendChild(input);
     return row;
+}
+
+// Numeric field that hangs off a SHAPE default — accepts plain numbers plus
+// "_%", "0._", and "*_" shorthand which all resolve against SHAPE[basis].
+function shapeNumberRow(name, value, onCommit) {
+    const row = document.createElement('div');
+    row.className = 'ce-row';
+    const label = document.createElement('label');
+    label.className = 'ce-label';
+    label.textContent = name;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = value ?? '';
+    input.className = 'ce-input';
+    const basis = SHAPE_FIELD_BASIS[name];
+    input.addEventListener('change', () => {
+        const parsed = parseShapeNumeric(input.value, basis);
+        // Reflect the canonical numeric back into the input so the next render
+        // doesn't show stale shorthand alongside a committed numeric value.
+        if (parsed != null) input.value = String(parsed);
+        onCommit(parsed);
+    });
+    row.appendChild(label);
+    row.appendChild(input);
+    return row;
+}
+
+// Opacity entered as a percentage ("100%", "50%"). Bare numbers are also
+// accepted (interpreted as 0–1 fraction) so existing data round-trips.
+function opacityRow(value, onCommit) {
+    const row = document.createElement('div');
+    row.className = 'ce-row';
+    const label = document.createElement('label');
+    label.className = 'ce-label';
+    label.textContent = 'opacity';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = value == null ? '' : `${Math.round(value * 100)}%`;
+    input.className = 'ce-input';
+    input.addEventListener('change', () => {
+        const raw = input.value.trim();
+        if (raw === '') return onCommit(null);
+        const m = raw.match(/^(-?\d*\.?\d+)\s*%$/);
+        const n = m ? parseFloat(m[1]) / 100 : parseFloat(raw);
+        if (isNaN(n)) return onCommit(null);
+        onCommit(n === 1 ? null : n);
+    });
+    row.appendChild(label);
+    row.appendChild(input);
+    return row;
+}
+
+function parseShapeNumeric(raw, basis) {
+    raw = String(raw).trim();
+    if (raw === '') return null;
+    const base = basis ? SHAPE[basis] : null;
+    let m;
+    if (base != null && (m = raw.match(/^(-?\d*\.?\d+)\s*%$/))) return base * parseFloat(m[1]) / 100;
+    if (base != null && (m = raw.match(/^\*\s*(-?\d*\.?\d+)$/))) return base * parseFloat(m[1]);
+    if (base != null && (m = raw.match(/^(-?0\.\d+)$/))) return base * parseFloat(m[1]);
+    const n = parseFloat(raw);
+    return isNaN(n) ? null : n;
+}
+
+// Pair two field rows side-by-side. Each child's label width shrinks so both
+// fit without wrapping; the input still flex-grows in the remaining space.
+function pairRow(left, right) {
+    const row = document.createElement('div');
+    row.className = 'ce-row ce-pair';
+    left.classList.add('ce-pair-half');
+    right.classList.add('ce-pair-half');
+    row.appendChild(left);
+    row.appendChild(right);
+    return row;
+}
+
+function sectionSeparator(text) {
+    const sep = document.createElement('div');
+    sep.className = 'ce-section-sep';
+    const label = document.createElement('span');
+    label.textContent = text;
+    sep.appendChild(label);
+    return sep;
 }
 
 function selectRow(name, options, value, onCommit, emptyLabel = '(default)') {

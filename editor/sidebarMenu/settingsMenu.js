@@ -1,7 +1,7 @@
 import { applyTheme, invertTheme } from '../utils/themeUtils.js';
 import { saveSettings, clearCustomComponents, getAllCustomComponents } from '../utils/storage.js';
 import { confirmAction } from '../utils/error.js';
-import { setSidebarState } from '../utils/state.js';
+import { setSidebarState, componentEditState } from '../utils/state.js';
 
 import { appManager } from '../instance.js';
 import { clearAbstractDefinitions } from 'rplib/parser/storage.js';
@@ -181,15 +181,22 @@ function createToggleSetting(setting) {
     const container = document.createElement('div');
     container.className = 'switch-container';
 
+    // Render delay is force-overridden while component-editor mode is active
+    // (see utils/settings.js initializeSettings) — reflect that in the UI by
+    // showing the toggle off and disabled, without mutating the saved state.
+    const forcedOff = setting.id === 'rendering-delay' && componentEditState.active;
+
     const toggle_switch = document.createElement('label');
     toggle_switch.className = 'switch';
+    if (forcedOff) toggle_switch.classList.add('switch-disabled');
     const slider = document.createElement('span');
     slider.className = 'slider';
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.id = setting.id;
 
-    checkbox.checked = setting.state;
+    checkbox.checked = forcedOff ? false : setting.state;
+    if (forcedOff) checkbox.disabled = true;
 
     toggle_switch.appendChild(checkbox);
     toggle_switch.appendChild(slider);

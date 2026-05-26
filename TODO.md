@@ -20,6 +20,9 @@
 - Consider what the references box could be used for. Maybe that becomes the text entry field for the component editing mode, where a user can select "Edit info" and type in this.
 - For all of these, there should be auto saving to local storage
 - When users want to move components inside components, auto create an empty point before the componet with no separation and move that, implicitly repositioning the component without requiring edits to it
+- click-to-set-previous
+- `swapModules`-style content overrides on imported component references (and the per-item `class` field that enables them)
+- full UI for multi-segment arrows (`arrow.segments[]` shown read-only).
 
 ### Genericize the reference box
 

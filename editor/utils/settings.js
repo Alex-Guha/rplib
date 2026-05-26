@@ -1,4 +1,5 @@
 import { appManager } from '../instance.js'
+import { componentEditState } from './state.js';
 
 export const checkSettingsToggle = (obj) => {
     for (const setting of appManager.canvas.store.views[appManager.canvas.store.currentView].settings ?? []) {
@@ -29,7 +30,10 @@ export const initializeSettings = (view) => {
         }
 
         if (setting.id === 'rendering-delay') {
-            appManager.canvas.renderDelay = setting.state;
+            // Component-editor mode force-disables render delay so the
+            // autosave-driven re-render loop doesn't fight staggered rendering.
+            // The user's saved preference is restored on exit.
+            appManager.canvas.renderDelay = componentEditState.active ? false : setting.state;
         }
     });
 };

@@ -73,8 +73,19 @@ export const drawNavigation = () => {
 
     navigation.selectAll('.nav-button').remove();
     drawButton('views-button', 0, svg_paths.dropdown, showViews, true);
-    drawButton('back-button', 50, svg_paths.back, appManager.canvas.undoViewChange, appManager.canvas.store.undoHistory.length > 0);
-    drawButton('forward-button', 100, svg_paths.forward, appManager.canvas.redoViewChange, appManager.canvas.store.redoHistory.length > 0);
+    // In component-edit mode the arrows undo/redo edit-history entries instead
+    // of view navigation — view changes are suppressed during a session anyway.
+    const inEdit = componentEditState.active;
+    const backHandler = inEdit ? appManager.canvas.undoEdit : appManager.canvas.undoViewChange;
+    const forwardHandler = inEdit ? appManager.canvas.redoEdit : appManager.canvas.redoViewChange;
+    const backEnabled = inEdit
+        ? appManager.canvas.canEditUndo()
+        : appManager.canvas.store.undoHistory.length > 0;
+    const forwardEnabled = inEdit
+        ? appManager.canvas.canEditRedo()
+        : appManager.canvas.store.redoHistory.length > 0;
+    drawButton('back-button', 50, svg_paths.back, backHandler, backEnabled);
+    drawButton('forward-button', 100, svg_paths.forward, forwardHandler, forwardEnabled);
     drawButton('reset-button', 150, svg_paths.reset, appManager.canvas.resetZoom, true);
     drawButton('edit-button', 250, svg_paths.edit, showEditOptions, true);
     // TODO Move these to the right corner of the content area

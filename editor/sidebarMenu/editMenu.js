@@ -98,7 +98,7 @@ function createArchitectureEditor(architectureText = '') {
     infoElement.innerHTML = '';
 
     const textarea = document.createElement('textarea');
-    textarea.id = 'architecture-editor';
+    textarea.id = 'abstract-editor';
     textarea.textContent = architectureText;
     textarea.spellcheck = false;
     textarea.wrap = 'off';
