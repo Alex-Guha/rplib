@@ -7,7 +7,7 @@ import { appManager } from '../instance.js';
 import { parseAbstractContent } from 'rplib/parser/parseAbstractFile.js';
 import serializeAbstractDefinition from 'rplib/parser/serializeAbstractFormat.js';
 import { saveAbstractDefinitions } from 'rplib/parser/storage.js';
-import { enterComponentMode, exitComponentMode } from './componentEditor.js';
+import { enterComponentMode, exitComponentMode } from './componentEditor/index.js';
 
 // ==========================
 // Edit Menu Functions

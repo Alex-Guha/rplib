@@ -1,6 +1,7 @@
 import { navigateTo } from '../core/navigation.js';
-import { setSidebarState } from '../utils/state.js';
+import { setSidebarState, componentEditState } from '../utils/state.js';
 import { getViewStructure } from 'rplib/parser/viewStructures.js';
+import { exitComponentMode } from './componentEditor/index.js';
 
 import { appManager } from '../instance.js';
 
@@ -41,6 +42,7 @@ export const showViews = (event) => {
         architectureName.className = 'view-item';
 
         architectureName.addEventListener('click', () => {
+            if (componentEditState.active) exitComponentMode();
             navigateTo(architecture);
             showViews(event);
             setSidebarState('views-button');
@@ -95,6 +97,7 @@ function buildViewTree(viewName, parentContainer) {
 
     // Add click handler to navigate to view
     viewLabel.addEventListener('click', () => {
+        if (componentEditState.active) exitComponentMode();
         navigateTo(viewName);
         showViews(event);
         setSidebarState('views-button');
