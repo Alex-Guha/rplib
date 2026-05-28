@@ -1,4 +1,4 @@
-import { parseAbstractDefinitionFile, loadAbstractDefinitions } from 'rplib/parser';
+import { parseAbstractDefinitionFile, loadAbstractDefinitions } from '@alexguha/rplib/parser';
 
 import AppManager from './appManager.js';
 import { initSidebar } from './core/sidebar.js';

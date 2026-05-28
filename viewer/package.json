@@ -1,5 +1,5 @@
 {
-  "name": "rplib-viewer",
+  "name": "@alexguha/rplib-viewer",
   "version": "0.1.0",
   "description": "Lightweight read-only viewer UI for rplib diagrams. Same canvas + sidebar + navigation as rplib-editor, with all authoring features stripped out.",
   "type": "module",
@@ -21,6 +21,7 @@
     "sidebarMenu",
     "utils",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "keywords": [
@@ -46,7 +47,7 @@
   "peerDependencies": {
     "d3": "^7.0.0",
     "katex": "^0.16.0",
-    "rplib": "^0.1.0"
+    "@alexguha/rplib": "^0.1.0"
   },
   "license": "ISC"
 }

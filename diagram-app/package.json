@@ -18,7 +18,7 @@
     "@lezer/highlight": "^1.2.3",
     "d3": "^7.9.0",
     "katex": "^0.16.27",
-    "rplib": "file:../core",
-    "rplib-editor": "file:../editor"
+    "@alexguha/rplib": "file:../core",
+    "@alexguha/rplib-editor": "file:../editor"
   }
 }

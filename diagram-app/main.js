@@ -1,4 +1,4 @@
-import { createEditor } from 'rplib-editor';
+import { createEditor } from '@alexguha/rplib-editor';
 import * as components from './standard_items/components.js';
 
 window.onload = async () => {

@@ -13,7 +13,7 @@
     "strict": false
   },
   "include": [
-    "canvasManager.js",
+    "index.js",
     "defaults.js",
     "editHistory.js",
     "layout.js",

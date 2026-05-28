@@ -3,7 +3,7 @@ import { saveSettings, clearCustomComponents, getAllCustomComponents } from '../
 import { confirmAction } from '../utils/error.js';
 import { setSidebarState, componentEditState } from '../utils/state.js';
 
-import { clearAbstractDefinitions } from 'rplib/parser';
+import { clearAbstractDefinitions } from '@alexguha/rplib/parser';
 import { exportCustomAbstracts, importAbstractFiles } from '../utils/abstractIO.js';
 
 // Handles the click event for the settings button

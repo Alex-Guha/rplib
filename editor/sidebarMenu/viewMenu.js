@@ -1,6 +1,6 @@
 import { navigateTo } from '../core/navigation.js';
 import { setSidebarState, componentEditState } from '../utils/state.js';
-import { getViewStructure } from 'rplib/parser';
+import { getViewStructure } from '@alexguha/rplib/parser';
 import { exitComponentMode } from './componentEditor/index.js';
 
 // Handles the click event for the nav menu button

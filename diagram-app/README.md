@@ -1,6 +1,6 @@
 # rplib diagram-app
 
-A small standalone app that exercises [`rplib`](../core/) and [`rplib-editor`](../editor/) using a set of test components and abstracts. Use it to develop and verify library changes without depending on a consumer project like Neural-Atlas.
+A small standalone app that exercises [`@alexguha/rplib`](../core/) and [`@alexguha/rplib-editor`](../editor/) using a set of test components and abstracts. Use it to develop and verify library changes without depending on a consumer project like Neural-Atlas.
 
 ## Run
 
@@ -20,4 +20,6 @@ Then open the printed URL (default `http://localhost:8080`).
 
 ## GitHub Pages
 
-The app is plain static HTML + ESM and intended to be deployable to GitHub Pages later. `npm install` materializes `node_modules/rplib` and `node_modules/rplib-editor` from the sibling folders (`file:../core`, `file:../editor`), so the deployed bundle is self-contained once `node_modules/` is included in what gets published.
+Deployed to GitHub Pages via [.github/workflows/deploy-diagram-app.yml](../.github/workflows/deploy-diagram-app.yml) on every push to `main`. The workflow checks out the repo, runs `npm install --install-links` inside `diagram-app/` (which materializes the `file:../core` and `file:../editor` deps into `node_modules/` as real copies), and uploads the `diagram-app/` folder as the Pages artifact. The deployed site therefore mirrors `main` — including any unpublished `core` / `editor` changes.
+
+Local dev is unaffected: the same `index.html` and importmap work both locally (against the sibling `core/` and `editor/` via `file:` deps) and on Pages (against the CI-materialized copies).

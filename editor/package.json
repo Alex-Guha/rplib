@@ -1,5 +1,5 @@
 {
-  "name": "rplib-editor",
+  "name": "@alexguha/rplib-editor",
   "version": "0.1.0",
   "description": "Generic diagram-editor UI built on top of rplib.",
   "type": "module",
@@ -21,6 +21,7 @@
     "sidebarMenu",
     "utils",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "keywords": [
@@ -48,7 +49,7 @@
   "peerDependencies": {
     "d3": "^7.0.0",
     "katex": "^0.16.0",
-    "rplib": "^0.1.0"
+    "@alexguha/rplib": "^0.1.0"
   },
   "license": "ISC",
   "dependencies": {

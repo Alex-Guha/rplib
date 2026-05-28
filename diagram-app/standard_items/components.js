@@ -1,6 +1,6 @@
 // Test components for exercising rplib-editor features.
 // These are not domain components — they're shape/arrow/text feature demos.
-import * as DEFAULTS from 'rplib-editor/defaults.js';
+import * as DEFAULTS from '@alexguha/rplib-editor/defaults.js';
 
 export const testText = {
     settings: [{ label: 'Hide Text', id: 'hide-text', property: 'hideText' }],

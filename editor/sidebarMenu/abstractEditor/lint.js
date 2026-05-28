@@ -3,7 +3,7 @@
 // while the user is mid-typing. The modal stays on manual Apply.
 
 import { linter } from '@codemirror/lint';
-import { parseAbstractContent } from 'rplib/parser';
+import { parseAbstractContent } from '@alexguha/rplib/parser';
 import { scanDocument, overrideSlotsFor } from './dslScan.js';
 
 /**

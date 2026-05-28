@@ -1,21 +1,21 @@
-# rplib-editor
+# @alexguha/rplib-editor
 
-A generic diagram-editor UI built on top of [`rplib`](../core/). You supply components (visual building blocks) and a data source (rplib-DSL abstract definitions — see [DSL.md](./DSL.md)); the editor handles canvas wiring, sidebar, navigation, theme switching, and settings persistence to `localStorage`.
+A generic diagram-editor UI built on top of [`@alexguha/rplib`](../core/). You supply components (visual building blocks) and a data source (rplib-DSL abstract definitions — see [DSL.md](./DSL.md)); the editor handles canvas wiring, sidebar, navigation, theme switching, and settings persistence to `localStorage`.
 
 The editor knows nothing about your domain. Labels, theme palettes, and storage are all overridable.
 
 ## Install
 
 ```sh
-npm install rplib rplib-editor d3 katex
+npm install @alexguha/rplib @alexguha/rplib-editor d3 katex
 ```
 
-`rplib`, `d3`, and `katex` are peer dependencies.
+`@alexguha/rplib`, `d3`, and `katex` are peer dependencies.
 
 ## Quickstart
 
 ```js
-import { createEditor } from 'rplib-editor';
+import { createEditor } from '@alexguha/rplib-editor';
 import * as components from './my-components.js';
 
 const manager = await createEditor({
@@ -31,7 +31,7 @@ manager.restoreView('default_view');         // fallback if no saved view in loc
 
 The consumer also needs to:
 
-1. Load `rplib-editor/styles.css` somewhere in the page (`<link>` or bundler).
+1. Load `@alexguha/rplib-editor/styles.css` somewhere in the page (`<link>` or bundler).
 2. Provide an `#svg` element and a `#sidebar` container in the HTML — the editor mounts into these by id.
 3. If running directly in the browser (no bundler), declare an importmap so bare specifiers resolve:
 
@@ -41,10 +41,10 @@ The consumer also needs to:
      "imports": {
        "d3": "./node_modules/d3/.../d3.js",
        "katex": "./node_modules/katex/dist/katex.mjs",
-       "rplib": "./node_modules/rplib/canvasManager.js",
-       "rplib/": "./node_modules/rplib/",
-       "rplib-editor": "./node_modules/rplib-editor/index.js",
-       "rplib-editor/": "./node_modules/rplib-editor/"
+       "@alexguha/rplib": "./node_modules/@alexguha/rplib/index.js",
+       "@alexguha/rplib/": "./node_modules/@alexguha/rplib/",
+       "@alexguha/rplib-editor": "./node_modules/@alexguha/rplib-editor/index.js",
+       "@alexguha/rplib-editor/": "./node_modules/@alexguha/rplib-editor/"
      }
    }
    </script>
@@ -88,10 +88,10 @@ If you need a non-`localStorage` storage backend, use rplib's storage adapter AP
 
 ## What's in the editor vs. what's in rplib core
 
-| In `rplib` core | In `rplib-editor` |
+| In `@alexguha/rplib` core | In `@alexguha/rplib-editor` |
 | --- | --- |
 | Resolved-view rendering, layout, theme application | Sidebar, settings menu, edit menu, view-picker, navigation breadcrumbs |
 | DSL parser, serializer, view structures | Theme palette catalog, settings persistence |
 | Mutation API (`updateItem`, `addItem`, …) and edit history | UI bindings that call the mutation API in response to user actions |
 
-If you want a headless rplib (no UI), depend on `rplib` alone and bring your own view layer.
+If you want a headless rplib (no UI), depend on `@alexguha/rplib` alone and bring your own view layer.

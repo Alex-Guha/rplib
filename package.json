@@ -8,7 +8,7 @@
     "viewer"
   ],
   "scripts": {
-    "test": "npm test --workspace rplib"
+    "test": "npm test --workspace @alexguha/rplib"
   },
   "license": "ISC"
 }

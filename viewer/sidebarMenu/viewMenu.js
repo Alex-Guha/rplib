@@ -1,6 +1,6 @@
 import { navigateTo } from '../core/navigation.js';
 import { setSidebarState } from '../utils/state.js';
-import { getViewStructure } from 'rplib/parser';
+import { getViewStructure } from '@alexguha/rplib/parser';
 
 // Handles the click event for the nav menu button
 export const showViews = (event, manager) => {

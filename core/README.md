@@ -1,11 +1,16 @@
-# rplib
+# @alexguha/rplib
 
 A small SVG diagramming library built around **relational positioning** — items declare a `position` and `previous` anchor, the renderer figures out where they go. Components are JSON, recursively composable, and swappable in place. The bundled DSL is one consumer; you can bring your own by passing a `resolveView` adapter.
+
+This package is the core canvas. Sibling packages built on top:
+
+- [`@alexguha/rplib-editor`](https://www.npmjs.com/package/@alexguha/rplib-editor) — full diagram-editor UI.
+- [`@alexguha/rplib-viewer`](https://www.npmjs.com/package/@alexguha/rplib-viewer) — read-only viewer UI.
 
 ## Install
 
 ```sh
-npm install rplib d3 katex
+npm install @alexguha/rplib d3 katex
 ```
 
 `d3` and `katex` are peer dependencies.
@@ -15,7 +20,7 @@ npm install rplib d3 katex
 Skip the bundled DSL and feed resolved views directly:
 
 ```js
-import RPCanvas from 'rplib';
+import RPCanvas from '@alexguha/rplib';
 import d3 from 'd3';
 
 const myView = {
@@ -41,12 +46,12 @@ canvas.changeViews('demo');
 ## Quickstart (bundled DSL)
 
 ```js
-import RPCanvas from 'rplib';
+import RPCanvas from '@alexguha/rplib';
 import {
   parseAbstractContent,
   loadAbstractDefinitions,
   loadRootView,
-} from 'rplib/parser';
+} from '@alexguha/rplib/parser';
 import * as components from './my-components.js';
 import d3 from 'd3';
 
@@ -77,6 +82,19 @@ loadRootView(canvas, localStorage, /* fallback view name */ 'my_view');
 | `canvas.refresh(viewName?)` | Re-resolve + re-render. Not recorded on edit history. |
 | `canvas.undoEdit() / redoEdit() / canEditUndo() / canEditRedo() / clearEditHistory()` | Edit history (separate from nav). |
 | `canvas.on('beforeMutate'\|'afterMutate', fn)` | Lifecycle hooks. Payload `{ viewName, changedIds, kind }`. |
+
+`changeViews` is the public navigation entry. `setCurrentView` exists on the
+instance and fires the `beforeViewChange` / `afterViewChange` hooks, but it's
+the internal render path — apps should always call `changeViews`.
+
+### Constructor options
+
+- `svgDOM` *(required)* — d3 selection of the target `<svg>`.
+- `defaults` — shallow overrides merged on top of [`rplib/defaults.js`](./defaults.js) (`SHAPE`, `ARROW`). Omit to use library defaults.
+- `components` — component map consumed by the bundled DSL resolver. Required only when you rely on the default resolver; ignored when you pass your own `resolveView`.
+- `eventListenerTargets` — `{ [attrName]: (d3Selection) => void }`. For each key, the renderer invokes the listener on any item carrying that attribute (own or inherited via `previous`-chain). Use for app-level click/hover wiring. See [`utils/attachListeners.js`](./utils/attachListeners.js).
+- `elementToggleCallback` — `(item) => boolean`. Return `true` to skip drawing an item. Use for app-level visibility filters.
+- `resolveView` — `(canvas, name) => { view, isRoot } | null`. App-owned DSL adapter; defaults to the bundled parser.
 
 **Adapters** (no global state inside the lib):
 
@@ -143,8 +161,6 @@ If your custom resolver reads from an external source-of-truth that changes
 outside rplib (e.g. an app store the user edits via their own UI), call
 `canvas.refresh(viewName)` to force a re-resolve + redraw. `refresh` is the
 escape hatch and does **not** record on the edit-history stack.
-
-See [../feedback/NOTES.md](../feedback/NOTES.md) for the architectural assessment and prior-art survey.
 
 ---
 
@@ -223,7 +239,7 @@ const myView = {
 };
 
 const canvas = new RPCanvas({
-  svgDOM: svg, defaults, eventListenerTargets: listeners, elementToggleCallback: toggleCb,
+  svgDOM: d3.select('#svg'),
   resolveView: (canvas, name) => name === 'demo' ? { view: myView, isRoot: true } : null,
 });
 canvas.changeViews('demo');

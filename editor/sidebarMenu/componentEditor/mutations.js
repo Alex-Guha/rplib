@@ -5,7 +5,7 @@ import {
     setPendingRename,
     clearPendingRename,
 } from '../../utils/storage.js';
-import { renameInContent } from 'rplib/mutate';
+import { renameInContent } from '@alexguha/rplib/mutate';
 import { EDITING_VIEW, SEED_CONTENT } from './constants.js';
 import { uniqueContentKey, setComponentEditTarget } from './helpers.js';
 import { renderInfoPanel } from './render.js';

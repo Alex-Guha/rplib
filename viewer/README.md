@@ -1,21 +1,21 @@
-# rplib-viewer
+# @alexguha/rplib-viewer
 
-A read-only diagram-viewer UI built on top of [`rplib`](../core/). Same canvas, sidebar, navigation, theming, and info overlay as [`rplib-editor`](../editor/) — without the authoring features.
+A read-only diagram-viewer UI built on top of [`@alexguha/rplib`](../core/). Same canvas, sidebar, navigation, theming, and info overlay as [`@alexguha/rplib-editor`](../editor/) — without the authoring features.
 
 Use when you want to publish or embed static diagrams without exposing the abstract / component editors, advanced import-export settings, or any of the editor's dependencies (e.g. CodeMirror).
 
 ## Install
 
 ```sh
-npm install rplib rplib-viewer d3 katex
+npm install @alexguha/rplib @alexguha/rplib-viewer d3 katex
 ```
 
-`rplib`, `d3`, and `katex` are peer dependencies.
+`@alexguha/rplib`, `d3`, and `katex` are peer dependencies.
 
 ## Quickstart
 
 ```js
-import { createViewer } from 'rplib-viewer';
+import { createViewer } from '@alexguha/rplib-viewer';
 import * as components from './my-components.js';
 
 const manager = await createViewer({
@@ -31,7 +31,7 @@ manager.restoreView('default_view');         // fallback if no saved view in loc
 
 The consumer also needs to:
 
-1. Load `rplib-viewer/styles.css` somewhere in the page.
+1. Load `@alexguha/rplib-viewer/styles.css` somewhere in the page.
 2. Provide an `#svg` element and a `#sidebar` container in the HTML — the viewer mounts into these by id.
 3. If running directly in the browser (no bundler), declare an importmap so bare specifiers resolve:
 
@@ -41,10 +41,10 @@ The consumer also needs to:
      "imports": {
        "d3": "./node_modules/d3/.../d3.js",
        "katex": "./node_modules/katex/dist/katex.mjs",
-       "rplib": "./node_modules/rplib/index.js",
-       "rplib/": "./node_modules/rplib/",
-       "rplib-viewer": "./node_modules/rplib-viewer/index.js",
-       "rplib-viewer/": "./node_modules/rplib-viewer/"
+       "@alexguha/rplib": "./node_modules/@alexguha/rplib/index.js",
+       "@alexguha/rplib/": "./node_modules/@alexguha/rplib/",
+       "@alexguha/rplib-viewer": "./node_modules/@alexguha/rplib-viewer/index.js",
+       "@alexguha/rplib-viewer/": "./node_modules/@alexguha/rplib-viewer/"
      }
    }
    </script>
@@ -68,7 +68,7 @@ Returns an `AppManager` exposing:
 - `setRepoUrl(url)` — reassign the lower-left GitHub button.
 - `canvas` — the underlying `RPCanvas` instance.
 
-## Differences vs `rplib-editor`
+## Differences vs `@alexguha/rplib-editor`
 
 - No edit button, no abstract / component editors, no edit-history undo/redo.
 - No advanced settings (no custom-abstract import/export, no custom-component management, no mass import).

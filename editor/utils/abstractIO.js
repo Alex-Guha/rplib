@@ -6,7 +6,7 @@ import {
     parseAbstractContent,
     saveAbstractDefinitions,
     serializeAbstractDefinition,
-} from 'rplib/parser';
+} from '@alexguha/rplib/parser';
 import {
     getAllCustomComponents,
     saveCustomComponent,

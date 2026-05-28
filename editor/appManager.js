@@ -1,5 +1,5 @@
-import RPCanvas from 'rplib';
-import { saveRootView, loadRootView } from 'rplib/parser';
+import RPCanvas from '@alexguha/rplib';
+import { saveRootView, loadRootView } from '@alexguha/rplib/parser';
 import d3 from 'd3';
 
 import { attachElementEventListeners, attachDetailEventListeners, resetSidebar } from './core/sidebar.js';

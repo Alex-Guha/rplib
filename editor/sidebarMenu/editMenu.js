@@ -1,7 +1,7 @@
 import { updateInfo } from '../core/sidebar.js';
 import { componentEditState, abstractEditState } from '../utils/state.js'
 
-import { serializeAbstractDefinition } from 'rplib/parser';
+import { serializeAbstractDefinition } from '@alexguha/rplib/parser';
 import { enterComponentMode, exitComponentMode } from './componentEditor/index.js';
 import { createAbstractEditor, exitAbstractMode } from './abstractEditor/index.js';
 
