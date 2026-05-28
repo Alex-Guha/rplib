@@ -1,4 +1,3 @@
-import { appManager } from '../../instance.js';
 import { componentEditState } from '../../utils/state.js';
 import {
     saveCustomComponent,
@@ -12,11 +11,11 @@ import { uniqueContentKey, setComponentEditTarget } from './helpers.js';
 import { renderInfoPanel } from './render.js';
 import { highlightTarget } from './target.js';
 
-export function patchItem(patch) {
+export function patchItem(manager, patch) {
     const name = componentEditState.name;
     const target = componentEditState.target;
     if (!target) return;
-    const canvas = appManager.canvas;
+    const canvas = manager.canvas;
     const def = canvas.components[name];
     if (!def?.content?.[target]) return;
     const nextItem = { ...def.content[target] };
@@ -28,14 +27,14 @@ export function patchItem(patch) {
     canvas.updateComponent(name, { content: nextContent });
 }
 
-export function patchComponentLevel(patch) {
-    appManager.canvas.updateComponent(componentEditState.name, patch);
+export function patchComponentLevel(manager, patch) {
+    manager.canvas.updateComponent(componentEditState.name, patch);
 }
 
-export function addItemAfterTarget() {
+export function addItemAfterTarget(manager) {
     const name = componentEditState.name;
     const target = componentEditState.target;
-    const canvas = appManager.canvas;
+    const canvas = manager.canvas;
     const def = canvas.components[name];
     if (!def?.content) return;
     const newId = uniqueContentKey(def.content, 'item');
@@ -54,14 +53,14 @@ export function addItemAfterTarget() {
     }
     canvas.updateComponent(name, { content: next });
     setComponentEditTarget(newId);
-    renderInfoPanel();
+    renderInfoPanel(manager);
     highlightTarget();
 }
 
-export function removeTarget() {
+export function removeTarget(manager) {
     const name = componentEditState.name;
     const target = componentEditState.target;
-    const canvas = appManager.canvas;
+    const canvas = manager.canvas;
     const def = canvas.components[name];
     if (!def?.content) return;
     const keys = Object.keys(def.content);
@@ -87,13 +86,13 @@ export function removeTarget() {
     canvas.updateComponent(name, { content: nextContent });
     const remaining = Object.keys(nextContent);
     setComponentEditTarget(remaining[0], { isImported: !!nextContent[remaining[0]]?.component });
-    renderInfoPanel();
+    renderInfoPanel(manager);
     highlightTarget();
 }
 
-export function resetToSeed() {
+export function resetToSeed(manager) {
     const name = componentEditState.name;
-    const canvas = appManager.canvas;
+    const canvas = manager.canvas;
     const def = canvas.components[name] || {};
     const patch = { content: SEED_CONTENT() };
     // Clear extra top-level keys
@@ -103,12 +102,12 @@ export function resetToSeed() {
     canvas.updateComponent(name, patch);
     setComponentEditTarget('box');
     componentEditState.isSeed = true;
-    renderInfoPanel();
+    renderInfoPanel(manager);
     highlightTarget();
 }
 
-export function importComponent(choice) {
-    const canvas = appManager.canvas;
+export function importComponent(manager, choice) {
+    const canvas = manager.canvas;
     if (!canvas.components[choice]) return;
 
     if (componentEditState.isSeed) {
@@ -122,7 +121,7 @@ export function importComponent(choice) {
         const firstKey = Object.keys(cloned.content || {})[0];
         setComponentEditTarget(firstKey ?? null);
         componentEditState.isSeed = true;
-        renderInfoPanel();
+        renderInfoPanel(manager);
         highlightTarget();
     } else {
         // Insert a reference after the current target
@@ -141,15 +140,15 @@ export function importComponent(choice) {
     }
 }
 
-export function renameComponent(oldName, newName) {
-    const canvas = appManager.canvas;
+export function renameComponent(manager, oldName, newName) {
+    const canvas = manager.canvas;
     const def = canvas.components[oldName];
     if (!def) return;
 
     // 1. Persist under the new name and set the recovery marker.
     componentEditState.pendingRenameFrom = oldName;
-    setPendingRename(oldName, localStorage);
-    saveCustomComponent(newName, def, localStorage);
+    setPendingRename(oldName, manager.storage);
+    saveCustomComponent(newName, def, manager.storage);
 
     // 2. Update in-memory components map.
     canvas.components[newName] = def;
@@ -165,32 +164,32 @@ export function renameComponent(oldName, newName) {
         ? `${newName}_${componentEditState.target}`
         : null;
 
-    // 4. Delete old localStorage entry, clear marker.
-    removeCustomComponent(oldName, localStorage);
-    clearPendingRename(localStorage);
+    // 4. Delete old persisted entry, clear marker.
+    removeCustomComponent(oldName, manager.storage);
+    clearPendingRename(manager.storage);
     componentEditState.pendingRenameFrom = null;
 
     canvas.refresh(EDITING_VIEW);
-    renderInfoPanel();
+    renderInfoPanel(manager);
     highlightTarget();
 }
 
-export function renameItemKey(oldId, newId) {
+export function renameItemKey(manager, oldId, newId) {
     const name = componentEditState.name;
-    const canvas = appManager.canvas;
+    const canvas = manager.canvas;
     const def = canvas.components[name];
     if (!def?.content) return;
     const nextContent = renameInContent(def.content, oldId, newId);
     canvas.updateComponent(name, { content: nextContent });
     componentEditState.target = newId;
     componentEditState.targetElementId = `${name}_${newId}`;
-    renderInfoPanel();
+    renderInfoPanel(manager);
     highlightTarget();
 }
 
-export function exportComponent() {
+export function exportComponent(manager) {
     const name = componentEditState.name;
-    const def = appManager.canvas.components[name];
+    const def = manager.canvas.components[name];
     if (!def) return;
     const body = `export const ${name} = ${JSON.stringify(def, null, 2)};\n`;
     const blob = new Blob([body], { type: 'text/javascript' });

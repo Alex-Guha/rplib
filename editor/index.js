@@ -1,7 +1,6 @@
 import { parseAbstractDefinitionFile, loadAbstractDefinitions } from 'rplib/parser';
 
 import AppManager from './appManager.js';
-import { setAppManager, appManager } from './instance.js';
 import { initSidebar } from './core/sidebar.js';
 import { mountGithubButton } from './core/githubButton.js';
 import { loadSettings, loadCustomComponents } from './utils/storage.js';
@@ -20,16 +19,23 @@ import { loadSettings, loadCustomComponents } from './utils/storage.js';
  * @param {string} [config.repoUrl]   — URL the GitHub button in the lower-left links to.
  *                                      Defaults to no href (button is shown but inert).
  *                                      Reassignable at runtime via `manager.setRepoUrl(url)`.
+ * @param {Storage} [config.storage]  — `{ getItem, setItem, removeItem }` adapter for
+ *                                      persistence. Defaults to the global `localStorage`
+ *                                      when available; pass an explicit object for SSR /
+ *                                      sandboxed iframes / Electron with custom storage /
+ *                                      test harnesses.
+ * @param {{error: Function, warn: Function}} [config.reporter] — diagnostics sink for both
+ *                                      the editor and the underlying rplib canvas.
+ *                                      Defaults to `console`.
  * @returns {Promise<AppManager>}
  */
-export async function createEditor({ components, dataSource, labels, themes, repoUrl }) {
-    const manager = new AppManager({ components, labels, themes, repoUrl });
-    setAppManager(manager);
+export async function createEditor({ components, dataSource, labels, themes, repoUrl, storage, reporter }) {
+    const manager = new AppManager({ components, labels, themes, repoUrl, storage, reporter });
 
-    initSidebar();
+    initSidebar(manager);
     mountGithubButton(repoUrl);
-    loadSettings();
-    loadCustomComponents(manager.canvas, localStorage);
+    loadSettings(manager);
+    loadCustomComponents(manager.canvas, manager.storage);
 
     try {
         manager.canvas.store.abstractDefinitions = typeof dataSource === 'string'
@@ -37,11 +43,11 @@ export async function createEditor({ components, dataSource, labels, themes, rep
             : dataSource;
     } catch (error) {
         const noun = manager.labels.abstract.singular.toLowerCase();
-        console.error(`Error parsing ${noun}:`, error);
+        manager.reporter.error(`Error parsing ${noun}:`, error);
     }
 
-    loadAbstractDefinitions(manager.canvas, localStorage);
-    cleanupTransientEditorState(manager.canvas, localStorage);
+    loadAbstractDefinitions(manager.canvas, manager.storage);
+    cleanupTransientEditorState(manager.canvas, manager.storage);
 
     return manager;
 }
@@ -51,6 +57,9 @@ export async function createEditor({ components, dataSource, labels, themes, rep
 // app on a view whose components no longer exist in memory. Strip any that
 // leaked into storage from earlier builds, and clear the saved root view
 // pointer if it referenced one.
+//
+// TODO(post-1.0): remove this migration. It only matters for users who ran
+// pre-fix builds; once those installs have cycled this is dead weight.
 function cleanupTransientEditorState(canvas, storage) {
     const defs = canvas.store.abstractDefinitions;
     let removed = false;
@@ -61,5 +70,3 @@ function cleanupTransientEditorState(canvas, storage) {
     if (savedRoot && savedRoot.startsWith('__')) storage.removeItem('rootView');
     if (removed) storage.setItem('abstractDefinitions', JSON.stringify(defs));
 }
-
-export { appManager };

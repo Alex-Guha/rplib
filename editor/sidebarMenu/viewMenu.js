@@ -3,10 +3,8 @@ import { setSidebarState, componentEditState } from '../utils/state.js';
 import { getViewStructure } from 'rplib/parser';
 import { exitComponentMode } from './componentEditor/index.js';
 
-import { appManager } from '../instance.js';
-
 // Handles the click event for the nav menu button
-export const showViews = (event) => {
+export const showViews = (event, manager) => {
     event.stopPropagation();
 
     const infoElement = document.getElementById('info');
@@ -19,11 +17,11 @@ export const showViews = (event) => {
 
     const viewDropdown = document.createElement('div');
     viewDropdown.className = 'view-container';
-    buildViewTree(appManager.canvas.store.rootView, viewDropdown);
+    buildViewTree(manager, manager.canvas.store.rootView, viewDropdown, event);
     infoElement.appendChild(viewDropdown);
 
     const abstractTitle = document.createElement('div');
-    abstractTitle.textContent = appManager.labels.abstract.plural;
+    abstractTitle.textContent = manager.labels.abstract.plural;
     abstractTitle.className = 'view-title';
     abstractTitle.style.marginTop = '30px';
     infoElement.appendChild(abstractTitle);
@@ -31,8 +29,8 @@ export const showViews = (event) => {
     const abstractMenu = document.createElement('div');
     abstractMenu.className = 'view-container';
 
-    Object.keys(appManager.canvas.store.abstractDefinitions).forEach(abstractName => {
-        if (abstractName === appManager.canvas.store.rootView) return;
+    Object.keys(manager.canvas.store.abstractDefinitions).forEach(abstractName => {
+        if (abstractName === manager.canvas.store.rootView) return;
         // The component editor mounts a transient abstract definition to host
         // the in-progress component; it isn't a real abstract and shouldn't
         // appear in the navigable list.
@@ -42,10 +40,10 @@ export const showViews = (event) => {
         abstractItem.className = 'view-item';
 
         abstractItem.addEventListener('click', () => {
-            if (componentEditState.active) exitComponentMode();
-            navigateTo(abstractName);
-            showViews(event);
-            setSidebarState('views-button');
+            if (componentEditState.active) exitComponentMode(manager);
+            navigateTo(manager, abstractName);
+            showViews(event, manager);
+            setSidebarState(manager, 'views-button');
         });
 
         abstractMenu.appendChild(abstractItem);
@@ -55,7 +53,7 @@ export const showViews = (event) => {
 };
 
 // Helper function to build the tree structure recursively
-function buildViewTree(viewName, parentContainer) {
+function buildViewTree(manager, viewName, parentContainer, originalEvent) {
     const viewRow = document.createElement('div');
     viewRow.className = 'view-item';
 
@@ -72,7 +70,7 @@ function buildViewTree(viewName, parentContainer) {
 
         // Build child views
         detailViews.forEach(childView => {
-            buildViewTree(childView, childrenContainer);
+            buildViewTree(manager, childView, childrenContainer, originalEvent);
         });
 
         // Add click handler for expand/collapse
@@ -97,10 +95,10 @@ function buildViewTree(viewName, parentContainer) {
 
     // Add click handler to navigate to view
     viewLabel.addEventListener('click', () => {
-        if (componentEditState.active) exitComponentMode();
-        navigateTo(viewName);
-        showViews(event);
-        setSidebarState('views-button');
+        if (componentEditState.active) exitComponentMode(manager);
+        navigateTo(manager, viewName);
+        showViews(originalEvent, manager);
+        setSidebarState(manager, 'views-button');
     });
 
     viewRow.appendChild(viewLabel);

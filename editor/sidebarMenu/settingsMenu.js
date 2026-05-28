@@ -3,12 +3,11 @@ import { saveSettings, clearCustomComponents, getAllCustomComponents } from '../
 import { confirmAction } from '../utils/error.js';
 import { setSidebarState, componentEditState } from '../utils/state.js';
 
-import { appManager } from '../instance.js';
 import { clearAbstractDefinitions } from 'rplib/parser';
 import { exportCustomAbstracts, importAbstractFiles } from '../utils/abstractIO.js';
 
 // Handles the click event for the settings button
-export const createSettings = (event) => {
+export const createSettings = (event, manager) => {
     event.stopPropagation();
 
     const infoElement = document.getElementById('info');
@@ -19,21 +18,21 @@ export const createSettings = (event) => {
         { id: 'rendering-delay' },
         { id: 'invert-theme' },
     ];
-    const viewSettings = appManager.canvas.store.views[appManager.canvas.store.currentView].settings ?? [];
+    const viewSettings = manager.canvas.store.views[manager.canvas.store.currentView].settings ?? [];
     const allSettings = [...globalSettings, ...viewSettings];
 
     allSettings.forEach(currentSetting => {
-        const setting = appManager.settings[currentSetting.id];
+        const setting = manager.settings[currentSetting.id];
         let container;
         switch (setting.type) {
             case 'dropdown':
-                container = createDropdownSetting(setting);
+                container = createDropdownSetting(manager, setting);
                 break;
             case 'toggle':
-                container = createToggleSetting(setting);
+                container = createToggleSetting(manager, setting);
                 break;
             default:
-                container = createToggleSetting(setting);
+                container = createToggleSetting(manager, setting);
                 break;
         }
         infoElement.appendChild(container);
@@ -42,17 +41,17 @@ export const createSettings = (event) => {
     const advancedSettingsButton = document.createElement('button');
     advancedSettingsButton.textContent = 'Advanced';
     advancedSettingsButton.style.marginTop = 'auto';
-    advancedSettingsButton.addEventListener('click', createAdvancedSettings);
+    advancedSettingsButton.addEventListener('click', (e) => createAdvancedSettings(e, manager));
     infoElement.appendChild(advancedSettingsButton);
 };
 
-export const createAdvancedSettings = (event) => {
+export const createAdvancedSettings = (event, manager) => {
     event.stopPropagation();
 
     const infoElement = document.getElementById('info');
     infoElement.innerHTML = '';
 
-    const { singular, plural } = appManager.labels.abstract;
+    const { singular, plural } = manager.labels.abstract;
     const advancedRow = document.createElement('div');
     advancedRow.className = 'advanced-row';
 
@@ -60,7 +59,7 @@ export const createAdvancedSettings = (event) => {
     exportAbstractsButton.textContent = `Export Custom ${plural}`;
     exportAbstractsButton.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (!exportCustomAbstracts()) {
+        if (!exportCustomAbstracts(manager)) {
             window.alert(`No ${plural.toLowerCase()} to export.`);
         }
     });
@@ -69,8 +68,8 @@ export const createAdvancedSettings = (event) => {
     const clearButton = document.createElement('button');
     clearButton.textContent = `Clear Custom ${plural}`;
     clearButton.addEventListener('click', async () => {
-        if (await confirmAction(`Clear Custom ${plural}\nAre you sure you want to clear all custom ${plural.toLowerCase()}?\nThis action cannot be undone.`)) {
-            clearAbstractDefinitions(appManager.canvas, localStorage);
+        if (await confirmAction(`Clear Custom ${plural}\nAre you sure you want to clear all custom ${plural.toLowerCase()}?\nThis action cannot be undone.`, manager)) {
+            clearAbstractDefinitions(manager.canvas, manager.storage);
             window.location.reload();
         }
     });
@@ -84,15 +83,15 @@ export const createAdvancedSettings = (event) => {
     exportAllButton.textContent = 'Export Custom Components';
     exportAllButton.addEventListener('click', (e) => {
         e.stopPropagation();
-        exportAllCustomComponents();
+        exportAllCustomComponents(manager);
     });
     componentRow.appendChild(exportAllButton);
 
     const clearComponentsButton = document.createElement('button');
     clearComponentsButton.textContent = 'Clear Custom Components';
     clearComponentsButton.addEventListener('click', async () => {
-        if (await confirmAction('Clear Custom Components\nAre you sure you want to clear all custom components?\nThis action cannot be undone.')) {
-            clearCustomComponents(localStorage);
+        if (await confirmAction('Clear Custom Components\nAre you sure you want to clear all custom components?\nThis action cannot be undone.', manager)) {
+            clearCustomComponents(manager.storage);
             window.location.reload();
         }
     });
@@ -116,16 +115,16 @@ export const createAdvancedSettings = (event) => {
         const files = massImportInput.files;
         if (!files || files.length === 0) return;
         try {
-            const { abstracts, components } = await importAbstractFiles(files);
+            const { abstracts, components } = await importAbstractFiles(files, manager);
             window.alert(`Imported ${abstracts.length} ${plural.toLowerCase()}, ${components.length} component(s).`);
             if (abstracts.length > 0) {
-                try { appManager.canvas.changeViews(abstracts[0]); } catch { /* noop */ }
+                try { manager.canvas.changeViews(abstracts[0]); } catch { /* noop */ }
             } else if (components.length > 0) {
                 // Refresh the current view so newly-imported components resolve.
-                try { appManager.canvas.setCurrentView(appManager.canvas.store.currentView); } catch { /* noop */ }
+                try { manager.canvas.setCurrentView(manager.canvas.store.currentView); } catch { /* noop */ }
             }
         } catch (err) {
-            console.error(err);
+            manager.reporter.error(err);
             window.alert(`Import failed: ${err.message}`);
         } finally {
             massImportInput.value = '';
@@ -144,13 +143,13 @@ export const createAdvancedSettings = (event) => {
     returnButton.style.marginTop = 'auto';
     returnButton.addEventListener('click', (e) => {
         e.stopPropagation();
-        createSettings(e);
+        createSettings(e, manager);
     });
     infoElement.appendChild(returnButton);
 };
 
-function exportAllCustomComponents() {
-    const map = getAllCustomComponents(localStorage);
+function exportAllCustomComponents(manager) {
+    const map = getAllCustomComponents(manager.storage);
     const names = Object.keys(map);
     if (names.length === 0) {
         window.alert('No custom components to export.');
@@ -172,7 +171,7 @@ function exportAllCustomComponents() {
 
 // Draws the dropdown menu in the settings
 // Currently only written for theme dropdown, would need to be modified for other dropdowns
-function createDropdownSetting(setting) {
+function createDropdownSetting(manager, setting) {
     const container = document.createElement('div');
     container.className = 'switch-container';
 
@@ -197,13 +196,13 @@ function createDropdownSetting(setting) {
         const selectedTheme = e.target.value;
 
         // Reinvert the theme if it was inverted
-        if (appManager.settings['invert-theme'].state) {
-            invertTheme(appManager.currentTheme, document.documentElement);
-            appManager.canvas.setTheme(appManager.currentTheme);
+        if (manager.settings['invert-theme'].state) {
+            invertTheme(manager.currentTheme, document.documentElement);
+            manager.canvas.setTheme(manager.currentTheme);
         }
 
         // Reset invert-theme setting and slider
-        appManager.settings['invert-theme'].state = false;
+        manager.settings['invert-theme'].state = false;
         const invertThemeCheckbox = document.getElementById('invert-theme');
         if (invertThemeCheckbox) {
             invertThemeCheckbox.checked = false;
@@ -211,13 +210,13 @@ function createDropdownSetting(setting) {
 
         setting.state = selectedTheme;
 
-        appManager.currentTheme = appManager.themes[selectedTheme] || appManager.defaultTheme;
-        appManager.canvas.setTheme(appManager.currentTheme);
-        applyTheme(appManager.currentTheme, document.documentElement);
-        saveSettings();
-        appManager.canvas.setCurrentView(appManager.canvas.store.currentView);
-        createSettings(e);
-        setSidebarState('settings-button');
+        manager.currentTheme = manager.themes[selectedTheme] || manager.defaultTheme;
+        manager.canvas.setTheme(manager.currentTheme);
+        applyTheme(manager.currentTheme, document.documentElement);
+        saveSettings(manager);
+        manager.canvas.setCurrentView(manager.canvas.store.currentView);
+        createSettings(e, manager);
+        setSidebarState(manager, 'settings-button');
     });
 
     container.appendChild(label);
@@ -227,7 +226,7 @@ function createDropdownSetting(setting) {
 }
 
 // Draws the default toggle switch for settings
-function createToggleSetting(setting) {
+function createToggleSetting(manager, setting) {
     const container = document.createElement('div');
     container.className = 'switch-container';
 
@@ -263,18 +262,18 @@ function createToggleSetting(setting) {
         setting.state = e.target.checked;
 
         if (setting.id === 'invert-theme') {
-            invertTheme(appManager.currentTheme, document.documentElement);
-            appManager.canvas.setTheme(appManager.currentTheme);
+            invertTheme(manager.currentTheme, document.documentElement);
+            manager.canvas.setTheme(manager.currentTheme);
         } else if (setting.id === 'rendering-delay') {
-            appManager.canvas.toggleRenderDelay();
+            manager.canvas.toggleRenderDelay();
         }
 
         if (setting.noRedraw ?? true) {
-            appManager.canvas.setCurrentView(appManager.canvas.store.currentView);
-            createSettings(e);
-            setSidebarState('settings-button');
+            manager.canvas.setCurrentView(manager.canvas.store.currentView);
+            createSettings(e, manager);
+            setSidebarState(manager, 'settings-button');
         }
-        saveSettings();
+        saveSettings(manager);
     });
 
     return container;

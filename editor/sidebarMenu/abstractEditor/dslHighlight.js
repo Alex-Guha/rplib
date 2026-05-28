@@ -24,7 +24,7 @@ const unknownSlotMark = Decoration.mark({ class: 'cm-unknown-slot' });
 /**
  * Build a ViewPlugin that decorates the visible viewport.
  *
- * @param {() => Object} getComponents  returns appManager.canvas.components
+ * @param {() => Object} getComponents  returns manager.canvas.components
  */
 export function makeDslHighlighter(getComponents) {
     return ViewPlugin.fromClass(class {

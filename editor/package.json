@@ -4,13 +4,15 @@
   "description": "Generic diagram-editor UI built on top of rplib.",
   "type": "module",
   "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
   "exports": {
     ".": "./index.js",
     "./styles.css": "./styles.css"
   },
   "files": [
     "index.js",
-    "instance.js",
     "appManager.js",
     "defaults.js",
     "themes.js",
@@ -18,8 +20,31 @@
     "core",
     "sidebarMenu",
     "utils",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
+  "keywords": [
+    "diagram",
+    "editor",
+    "rplib",
+    "svg",
+    "d3",
+    "visualization",
+    "dsl",
+    "codemirror"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alex-Guha/rplib.git",
+    "directory": "editor"
+  },
+  "homepage": "https://github.com/Alex-Guha/rplib#readme",
+  "bugs": {
+    "url": "https://github.com/Alex-Guha/rplib/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "peerDependencies": {
     "d3": "^7.0.0",
     "katex": "^0.16.0",

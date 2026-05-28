@@ -1,8 +1,8 @@
 // Autocomplete for the abstract DSL.
 //
 // Suggestions come from three pools, intersected with the cursor's context:
-//   - component IDs from `appManager.canvas.components`
-//   - abstract names from `appManager.canvas.store.abstractDefinitions`
+//   - component IDs from `manager.canvas.components`
+//   - abstract names from `manager.canvas.store.abstractDefinitions`
 //   - override slots declared on the parent component at this indent level
 //
 // We re-scan the document on each request — the doc is short (a few hundred
@@ -18,7 +18,7 @@ const wordPattern = /[\w.-]+/;
  * inside another abstract isn't supported by the parser/resolver.
  *
  * @param {Object} getters
- * @param {() => Object} getters.getComponents      `appManager.canvas.components`
+ * @param {() => Object} getters.getComponents      `manager.canvas.components`
  */
 export function makeCompletionSource({ getComponents }) {
     return (context) => {

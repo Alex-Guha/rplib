@@ -155,7 +155,7 @@ export function scanDocument(lines) {
 
 /**
  * Collect override-slot classNames declared inside a component's `content`.
- * `componentsRegistry` is `appManager.canvas.components`.
+ * `componentsRegistry` is `manager.canvas.components`.
  */
 export function overrideSlotsFor(componentsRegistry, componentName) {
     const comp = componentsRegistry?.[componentName];

@@ -6,21 +6,17 @@ import { displayError } from '../utils/error.js';
 import { setSidebarState, componentEditState, abstractEditState } from '../utils/state.js'
 import { exitAbstractMode } from '../sidebarMenu/abstractEditor/index.js';
 
-import { appManager } from '../instance.js';
-
-const navigation = d3.select("#navigation");
-
 // The edit button stays visually pinned for the entire component-edit session,
 // regardless of which sidebar menu (settings / views / etc.) is currently active.
 const isPinnedHover = (buttonId) =>
     componentEditState.active && buttonId === 'edit-button';
 
 // Handles changing views
-export const navigateTo = (view) => {
+export const navigateTo = (manager, view) => {
     try {
-        appManager.canvas.changeViews(view);
+        manager.canvas.changeViews(view);
     } catch (error) {
-        displayError(error.message);
+        displayError(error.message, manager);
     }
 };
 
@@ -35,8 +31,8 @@ const BUTTON_CONFIG = {
 
 const getButtonConfig = (id) => BUTTON_CONFIG[id] || BUTTON_CONFIG.default;
 
-const getButtonStates = (isEnabled, config) => {
-    const theme = appManager.currentTheme;
+const getButtonStates = (manager, isEnabled, config) => {
+    const theme = manager.currentTheme;
     return {
         normal: {
             fill: isEnabled ? theme.BUTTON_FILL : theme.DISABLED_BUTTON_FILL,
@@ -53,7 +49,7 @@ const getButtonStates = (isEnabled, config) => {
     };
 };
 
-export const drawNavigation = () => {
+export const drawNavigation = (manager) => {
     // https://yqnn.github.io/svg-path-editor/
     const svg_paths = {
         back: "M7.5-10-7.5 0l15 10Z",
@@ -72,30 +68,34 @@ export const drawNavigation = () => {
         info: "M0-11a1.1 1.1 90 000 4.4 1.1 1.1 90 000-4.4zM-2.2-1.1c0-3.3 4.4-3.3 4.4 0v9.9c0 3.3-4.4 3.3-4.4 0z"
     };
 
+    const navigation = d3.select("#navigation");
     navigation.selectAll('.nav-button').remove();
-    drawButton('views-button', 0, svg_paths.dropdown, showViews, true);
+    drawButton(manager, 'views-button', 0, svg_paths.dropdown, (e) => showViews(e, manager), true, { menu: true });
     // In component-edit mode the arrows undo/redo edit-history entries instead
     // of view navigation — view changes are suppressed during a session anyway.
     const inEdit = componentEditState.active;
-    const backHandler = inEdit ? appManager.canvas.undoEdit : appManager.canvas.undoViewChange;
-    const forwardHandler = inEdit ? appManager.canvas.redoEdit : appManager.canvas.redoViewChange;
+    const backHandler = inEdit ? manager.canvas.undoEdit : manager.canvas.undoViewChange;
+    const forwardHandler = inEdit ? manager.canvas.redoEdit : manager.canvas.redoViewChange;
     const backEnabled = inEdit
-        ? appManager.canvas.canEditUndo()
-        : appManager.canvas.store.undoHistory.length > 0;
+        ? manager.canvas.canEditUndo()
+        : manager.canvas.store.undoHistory.length > 0;
     const forwardEnabled = inEdit
-        ? appManager.canvas.canEditRedo()
-        : appManager.canvas.store.redoHistory.length > 0;
-    drawButton('back-button', 50, svg_paths.back, backHandler, backEnabled);
-    drawButton('forward-button', 100, svg_paths.forward, forwardHandler, forwardEnabled);
-    drawButton('reset-button', 150, svg_paths.reset, appManager.canvas.resetZoom, true);
-    drawButton('edit-button', 250, svg_paths.edit, showEditOptions, true);
+        ? manager.canvas.canEditRedo()
+        : manager.canvas.store.redoHistory.length > 0;
+    drawButton(manager, 'back-button', 50, svg_paths.back, backHandler, backEnabled);
+    drawButton(manager, 'forward-button', 100, svg_paths.forward, forwardHandler, forwardEnabled);
+    drawButton(manager, 'reset-button', 150, svg_paths.reset, manager.canvas.resetZoom, true);
+    drawButton(manager, 'edit-button', 250, svg_paths.edit, (e) => showEditOptions(e, manager), true, { menu: true, isEditNav: true });
     // ? Move these to the right corner of the content area?
-    drawButton('settings-button', 200, svg_paths.settings, createSettings, true);
-    drawButton('info-button', 300, svg_paths.info, showInfoOverlay, true);
+    drawButton(manager, 'settings-button', 200, svg_paths.settings, (e) => createSettings(e, manager), true, { menu: true });
+    drawButton(manager, 'info-button', 300, svg_paths.info, showInfoOverlay, true);
 };
 
-function drawButton(id, x, shape, clickHandler, isEnabled) {
+function drawButton(manager, id, x, shape, clickHandler, isEnabled, opts = {}) {
     const config = getButtonConfig(id);
+    const isMenu = !!opts.menu;
+    const isEditNav = !!opts.isEditNav;
+    const navigation = d3.select("#navigation");
 
     const group = navigation.append('g')
         .attr('class', 'nav-button')
@@ -106,10 +106,10 @@ function drawButton(id, x, shape, clickHandler, isEnabled) {
     // Prevent dragging when hovering over the button
     group.on('mousedown', (event) => event.stopPropagation());
 
-    const states = getButtonStates(isEnabled, config);
+    const states = getButtonStates(manager, isEnabled, config);
 
     // Use hover state if button has persistent hover, otherwise use normal state
-    const initialState = ((appManager.sidebarState === id) || isPinnedHover(id)) && isEnabled
+    const initialState = ((manager.sidebarState === id) || isPinnedHover(id)) && isEnabled
         ? states.hover
         : states.normal;
 
@@ -142,17 +142,17 @@ function drawButton(id, x, shape, clickHandler, isEnabled) {
             // doesn't see an empty/broken view.
             if (
                 abstractEditState.active &&
-                clickHandler !== showEditOptions
+                !isEditNav
             ) {
-                exitAbstractMode();
+                exitAbstractMode(manager);
             }
 
             // Set persistent hover for menu buttons
-            if (clickHandler === showViews || clickHandler === createSettings || clickHandler === showEditOptions) {
-                setSidebarState(id);
+            if (isMenu) {
+                setSidebarState(manager, id);
                 clickHandler(event);
             } else {
-                setSidebarState(null);
+                setSidebarState(manager, null);
                 clickHandler();
             }
         });
@@ -160,7 +160,7 @@ function drawButton(id, x, shape, clickHandler, isEnabled) {
         // Hover effects
         group.on('mouseover', function () {
             // Only apply hover effect if not in persistent state
-            if (appManager.sidebarState !== id) {
+            if (manager.sidebarState !== id) {
                 buttonRect.attr('fill', states.hover.fill);
                 buttonIcon
                     .attr('stroke', states.hover.pathStroke)
@@ -170,7 +170,7 @@ function drawButton(id, x, shape, clickHandler, isEnabled) {
 
         group.on('mouseout', function () {
             // Only revert hover effect if not in persistent state
-            if (appManager.sidebarState !== id && !isPinnedHover(id)) {
+            if (manager.sidebarState !== id && !isPinnedHover(id)) {
                 buttonRect.attr('fill', states.normal.fill);
                 buttonIcon
                     .attr('stroke', states.normal.pathStroke)
@@ -181,7 +181,7 @@ function drawButton(id, x, shape, clickHandler, isEnabled) {
 }
 
 // Helper function to update a button's visual state
-export function updateButtonState(buttonId) {
+export function updateButtonState(manager, buttonId) {
     const buttonGroup = d3.select(`#${buttonId}`);
     if (buttonGroup.empty()) return;
 
@@ -190,8 +190,8 @@ export function updateButtonState(buttonId) {
 
     // updateButtonState only runs for already-drawn (enabled) buttons,
     // so pass isEnabled=true to mirror the live state options.
-    const states = getButtonStates(true, getButtonConfig(buttonId));
-    const targetState = ((appManager.sidebarState === buttonId) || isPinnedHover(buttonId))
+    const states = getButtonStates(manager, true, getButtonConfig(buttonId));
+    const targetState = ((manager.sidebarState === buttonId) || isPinnedHover(buttonId))
         ? states.hover
         : states.normal;
 

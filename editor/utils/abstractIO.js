@@ -2,7 +2,6 @@
 // any custom components it references, packaged in a store-only ZIP. Plain
 // .txt files and bare components.js files are also accepted on import.
 
-import { appManager } from '../instance.js';
 import {
     parseAbstractContent,
     saveAbstractDefinitions,
@@ -52,8 +51,8 @@ function serializeAbstractsAll(defs) {
  * single `.txt` download. Mirrors `Export Custom Components` in shape.
  * @returns {boolean} false when there are no abstracts to export.
  */
-export function exportCustomAbstracts() {
-    const defs = appManager.canvas.store.abstractDefinitions;
+export function exportCustomAbstracts(manager) {
+    const defs = manager.canvas.store.abstractDefinitions;
     const names = Object.keys(defs);
     if (names.length === 0) return false;
     const text = serializeAbstractsAll(defs);
@@ -122,15 +121,15 @@ function downloadBlob(blob, filename) {
  * @param {string} abstractName
  * @returns {boolean} false when the abstract isn't resolvable / not exportable.
  */
-export function exportAbstractBundle(abstractName) {
+export function exportAbstractBundle(abstractName, manager) {
     if (!abstractName) return false;
-    const canvas = appManager.canvas;
+    const canvas = manager.canvas;
     const def = canvas.store.abstractDefinitions[abstractName];
     if (!def) return false;
 
     const abstractText = serializeAbstractDefinition(abstractName, def);
     const refs = collectComponentRefs(def);
-    const customAll = getAllCustomComponents(localStorage);
+    const customAll = getAllCustomComponents(manager.storage);
     const customUsed = {};
     for (const ref of refs) {
         const base = ref.replace(/_\d+$/, '');
@@ -168,25 +167,25 @@ async function readFileAsArrayBuffer(file) {
     });
 }
 
-function applyAbstractsText(text) {
+function applyAbstractsText(text, manager) {
     const parsed = parseAbstractContent(text);
-    const canvas = appManager.canvas;
+    const canvas = manager.canvas;
     const imported = [];
     for (const [name, structure] of Object.entries(parsed)) {
         canvas.store.abstractDefinitions[name] = structure;
         canvas.invalidateView(name);
         imported.push(name);
     }
-    saveAbstractDefinitions(canvas, localStorage);
+    saveAbstractDefinitions(canvas, manager.storage);
     return imported;
 }
 
-function applyComponentsText(text) {
+function applyComponentsText(text, manager) {
     const components = parseComponentsModule(text);
-    const canvas = appManager.canvas;
+    const canvas = manager.canvas;
     const imported = [];
     for (const [name, def] of Object.entries(components)) {
-        saveCustomComponent(name, def, localStorage);
+        saveCustomComponent(name, def, manager.storage);
         canvas.components[name] = def;
         imported.push(name);
     }
@@ -203,7 +202,7 @@ function applyComponentsText(text) {
  * @param {FileList | File[]} files
  * @returns {Promise<{abstracts: string[], components: string[]}>}
  */
-export async function importAbstractFiles(files) {
+export async function importAbstractFiles(files, manager) {
     const list = Array.from(files || []);
     if (list.length === 0) return { abstracts: [], components: [] };
 
@@ -228,7 +227,7 @@ export async function importAbstractFiles(files) {
     }
 
     // Components first so any abstracts referencing them can resolve.
-    const components = componentsText ? applyComponentsText(componentsText) : [];
-    const abstracts = abstractsText ? applyAbstractsText(abstractsText) : [];
+    const components = componentsText ? applyComponentsText(componentsText, manager) : [];
+    const abstracts = abstractsText ? applyAbstractsText(abstractsText, manager) : [];
     return { abstracts, components };
 }

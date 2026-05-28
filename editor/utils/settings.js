@@ -1,9 +1,8 @@
-import { appManager } from '../instance.js'
 import { componentEditState } from './state.js';
 
-export const checkSettingsToggle = (obj) => {
-    for (const setting of appManager.canvas.store.views[appManager.canvas.store.currentView].settings ?? []) {
-        if (obj[setting.property] && appManager.settings[setting.id] && appManager.settings[setting.id].state) return true;
+export const checkSettingsToggle = (obj, manager) => {
+    for (const setting of manager.canvas.store.views[manager.canvas.store.currentView].settings ?? []) {
+        if (obj[setting.property] && manager.settings[setting.id] && manager.settings[setting.id].state) return true;
     }
     return false;
 };
@@ -11,17 +10,17 @@ export const checkSettingsToggle = (obj) => {
 
 // `view` is the view being entered. Must be the incoming view, not `store.currentView`,
 // since this runs on `beforeViewChange` while `currentView` is still the previous view.
-export const initializeSettings = (view) => {
-    const incoming = appManager.canvas.store.views[view];
+export const initializeSettings = (view, manager) => {
+    const incoming = manager.canvas.store.views[view];
     if (incoming && incoming.settings) {
         incoming.settings.forEach(setting => {
-            if (appManager.settings[setting.id]) return;
+            if (manager.settings[setting.id]) return;
 
-            appManager.settings[setting.id] = setting;
+            manager.settings[setting.id] = setting;
         });
     }
 
-    Object.entries(appManager.settings).forEach(([id, setting]) => {
+    Object.entries(manager.settings).forEach(([id, setting]) => {
         if (setting.state === undefined) {
             setting.state = setting.defaultValue ?? false;
         }
@@ -33,7 +32,7 @@ export const initializeSettings = (view) => {
             // Component-editor mode force-disables render delay so the
             // autosave-driven re-render loop doesn't fight staggered rendering.
             // The user's saved preference is restored on exit.
-            appManager.canvas.renderDelay = componentEditState.active ? false : setting.state;
+            manager.canvas.renderDelay = componentEditState.active ? false : setting.state;
         }
     });
 };

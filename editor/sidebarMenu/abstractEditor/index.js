@@ -2,7 +2,6 @@
 // See feedback/ABSTRACT_EDITOR_PLAN.md for the design. Persistence runs
 // entirely through autosave (see ./autosave.js).
 
-import { appManager } from '../../instance.js';
 import { setSidebarState, abstractEditState } from '../../utils/state.js';
 import { exportAbstractBundle, importAbstractFiles } from '../../utils/abstractIO.js';
 
@@ -14,12 +13,10 @@ import { makeAutosave } from './autosave.js';
 
 import { autocompletion } from '@codemirror/autocomplete';
 
-const getComponents = () => appManager.canvas.components;
-const getAbstractDefs = () => appManager.canvas.store.abstractDefinitions;
-
 /**
  * Mount the abstract editor into the #info pane.
  *
+ * @param {AppManager} manager           live editor instance
  * @param {string} abstractText          initial doc
  * @param {Object} [opts]
  * @param {boolean} [opts.isNew=false]   true when opened from "create new" —
@@ -27,10 +24,13 @@ const getAbstractDefs = () => appManager.canvas.store.abstractDefinitions;
  *                                       name so autosave commits on first
  *                                       successful parse.
  */
-export function createAbstractEditor(abstractText = '', { isNew = false } = {}) {
+export function createAbstractEditor(manager, abstractText = '', { isNew = false } = {}) {
     // If we're re-entering while already active (e.g. caller forgot to exit
     // first), tear down the previous instance to avoid leaks.
-    if (abstractEditState.active) exitAbstractMode();
+    if (abstractEditState.active) exitAbstractMode(manager);
+
+    const getComponents = () => manager.canvas.components;
+    const getAbstractDefs = () => manager.canvas.store.abstractDefinitions;
 
     const infoElement = document.getElementById('info');
     infoElement.innerHTML = '';
@@ -56,12 +56,12 @@ export function createAbstractEditor(abstractText = '', { isNew = false } = {}) 
         e.stopPropagation();
         const name = autosave.getCommittedName();
         if (!name) return;
-        try { exportAbstractBundle(name); } catch (err) { console.error(err); }
+        try { exportAbstractBundle(name, manager); } catch (err) { manager.reporter.error(err); }
     });
 
     const autosave = makeAutosave({
-        canvas: appManager.canvas,
-        storage: localStorage,
+        canvas: manager.canvas,
+        storage: manager.storage,
         initialName,
         onRenameCommitted: (newName) => {
             refreshExportEnabled();
@@ -69,12 +69,12 @@ export function createAbstractEditor(abstractText = '', { isNew = false } = {}) 
             // the renderer would log "Component X not found" / crash on an
             // in-progress doc. Lint inline surfaces the issue meanwhile; the
             // canvas catches up once typing stabilises.
-            if (!abstractIsResolvable(newName)) return;
-            try { appManager.canvas.changeViews(newName); } catch { /* lint shows it */ }
+            if (!abstractIsResolvable(manager, newName)) return;
+            try { manager.canvas.changeViews(newName); } catch { /* lint shows it */ }
         },
         onBodyCommitted: (name) => {
-            if (!abstractIsResolvable(name)) return;
-            const canvas = appManager.canvas;
+            if (!abstractIsResolvable(manager, name)) return;
+            const canvas = manager.canvas;
             try {
                 if (canvas.store.currentView === name) {
                     // Re-render in place. writeBody invalidated the cached
@@ -121,15 +121,15 @@ export function createAbstractEditor(abstractText = '', { isNew = false } = {}) 
             const files = fileInput.files;
             if (!files || files.length === 0) return;
             try {
-                const { abstracts } = await importAbstractFiles(files);
+                const { abstracts } = await importAbstractFiles(files, manager);
                 if (abstracts.length > 0) {
                     // Exit the editor and navigate to the first imported abstract
                     // so the user sees the result of the import immediately.
-                    exitAbstractMode();
-                    try { appManager.canvas.changeViews(abstracts[0]); } catch { /* noop */ }
+                    exitAbstractMode(manager);
+                    try { manager.canvas.changeViews(abstracts[0]); } catch { /* noop */ }
                 }
             } catch (err) {
-                console.error(err);
+                manager.reporter.error(err);
                 alert(`Import failed: ${err.message}`);
             } finally {
                 fileInput.value = '';
@@ -177,7 +177,7 @@ export function createAbstractEditor(abstractText = '', { isNew = false } = {}) 
         info.innerHTML = '';
         info.appendChild(host);
         info.appendChild(buttonRow);
-        setSidebarState('edit-button');
+        setSidebarState(manager, 'edit-button');
         view.focus();
     };
     mountIntoInfo();
@@ -187,7 +187,7 @@ export function createAbstractEditor(abstractText = '', { isNew = false } = {}) 
     // Capture the previous root view so exit can restore it — handleNew sets
     // currentView to '' before entry, so we read rootView (which is sticky).
     abstractEditState.active = true;
-    abstractEditState.previousRootView = appManager.canvas.store.rootView || null;
+    abstractEditState.previousRootView = manager.canvas.store.rootView || null;
     abstractEditState.teardown = () => {
         view.destroy();
         const info = document.getElementById('info');
@@ -200,7 +200,7 @@ export function createAbstractEditor(abstractText = '', { isNew = false } = {}) 
     return view;
 }
 
-export function exitAbstractMode() {
+export function exitAbstractMode(manager) {
     if (!abstractEditState.active) return;
     const { teardown, previousRootView } = abstractEditState;
     abstractEditState.active = false;
@@ -208,12 +208,12 @@ export function exitAbstractMode() {
     abstractEditState.restoreInfoPanel = null;
     abstractEditState.previousRootView = null;
     try { teardown?.(); } catch { /* noop */ }
-    setSidebarState(null);
+    setSidebarState(manager, null);
 
     // If the canvas is on an unresolved/empty view (e.g. user opened "Create
     // new" and never finished a parseable abstract), restore the previous root
     // view so the app doesn't sit on a broken state.
-    const canvas = appManager.canvas;
+    const canvas = manager.canvas;
     const cur = canvas.store.currentView;
     const onBrokenView = !cur || !canvas.store.views[cur];
     if (onBrokenView && previousRootView && canvas.store.abstractDefinitions[previousRootView]) {
@@ -231,9 +231,9 @@ function extractFirstName(text) {
 // registered. Used to gate the live navigate during autosave so a partially-
 // typed doc (e.g. `name:\n    tes` while the user is still typing `test`)
 // doesn't trigger renderer errors.
-function abstractIsResolvable(abstractName) {
-    const defs = appManager.canvas.store.abstractDefinitions;
-    const components = appManager.canvas.components;
+function abstractIsResolvable(manager, abstractName) {
+    const defs = manager.canvas.store.abstractDefinitions;
+    const components = manager.canvas.components;
     const def = defs[abstractName];
     if (!def || !def.content) return false;
 

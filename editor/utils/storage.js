@@ -1,7 +1,5 @@
 import { applyTheme } from './themeUtils.js';
 
-import { appManager } from '../instance.js';
-
 const CUSTOM_COMPONENTS_KEY = 'rplib_editor:custom_components';
 const PENDING_RENAME_KEY = 'rplib_editor:pending_rename';
 
@@ -74,21 +72,19 @@ export function getPendingRename(storage) {
     return storage.getItem(PENDING_RENAME_KEY);
 }
 
-export function loadSettings() {
-    const savedSettings = JSON.parse(localStorage.getItem('settings')) || {};
+export function loadSettings(manager) {
+    const savedSettings = JSON.parse(manager.storage.getItem('settings')) || {};
     Object.keys(savedSettings).forEach(key => {
-        appManager.settings[key] = savedSettings[key];
+        manager.settings[key] = savedSettings[key];
     });
-    //console.debug('Loaded settings:', savedSettings);
 
     // Load the saved theme directly
-    appManager.currentTheme = JSON.parse(localStorage.getItem('currentTheme')) || appManager.defaultTheme;
-    appManager.canvas.setTheme(appManager.currentTheme);
-    applyTheme(appManager.currentTheme, document.documentElement);
+    manager.currentTheme = JSON.parse(manager.storage.getItem('currentTheme')) || manager.defaultTheme;
+    manager.canvas.setTheme(manager.currentTheme);
+    applyTheme(manager.currentTheme, document.documentElement);
 }
 
-export function saveSettings() {
-    localStorage.setItem('settings', JSON.stringify(appManager.settings));
-    //console.debug('Saved settings:', appManager.settings);
-    localStorage.setItem('currentTheme', JSON.stringify(appManager.currentTheme));
+export function saveSettings(manager) {
+    manager.storage.setItem('settings', JSON.stringify(manager.settings));
+    manager.storage.setItem('currentTheme', JSON.stringify(manager.currentTheme));
 }

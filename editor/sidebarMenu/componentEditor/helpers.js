@@ -1,4 +1,3 @@
-import { appManager } from '../../instance.js';
 import { componentEditState } from '../../utils/state.js';
 
 // Components available as a `details` target. The parser's handleDetails path
@@ -7,9 +6,9 @@ import { componentEditState } from '../../utils/state.js';
 // mirrors that. Excludes the currently-edited component to prevent
 // self-referential cycles, and preserves an out-of-list current value so
 // pre-existing data isn't silently dropped on render.
-export function detailsOptions(currentValue) {
+export function detailsOptions(manager, currentValue) {
     const opts = new Set(['']);
-    for (const name of Object.keys(appManager.canvas.components)) {
+    for (const name of Object.keys(manager.canvas.components)) {
         if (name === componentEditState.name) continue;
         opts.add(name);
     }
@@ -70,13 +69,13 @@ export function uniqueContentKey(content, base) {
     return candidate;
 }
 
-export function uniqueComponentName(base) {
+export function uniqueComponentName(manager, base) {
     // IMPORTANT: do not use a `_\d+$` suffix here — the parser strips that
     // pattern when resolving component refs (parseIntermediateFormat.js:86),
     // so `new_component_1` would resolve back to `new_component` and pick up
     // whatever stale definition lives under that name. Letter suffixes are
     // safe because the strip regex only matches digits.
-    const taken = new Set(Object.keys(appManager.canvas.components));
+    const taken = new Set(Object.keys(manager.canvas.components));
     if (!taken.has(base)) return base;
     for (let i = 0; i < 26; i++) {
         const candidate = `${base}_${String.fromCharCode(97 + i)}`;
@@ -86,11 +85,11 @@ export function uniqueComponentName(base) {
     return `${base}_t${Date.now()}`;
 }
 
-export function validateComponentName(name) {
+export function validateComponentName(manager, name) {
     if (!name) return 'Name cannot be empty.';
     if (/_\d+$/.test(name)) return 'Name cannot end with _<number> (reserved by parser).';
     if (name === componentEditState.name) return null;
-    if (appManager.canvas.components[name]) return `A component named "${name}" already exists.`;
+    if (manager.canvas.components[name]) return `A component named "${name}" already exists.`;
     return null;
 }
 

@@ -17,8 +17,8 @@ const tryParse = (text) => {
 
 /**
  * @param {Object} deps
- * @param {Object} deps.canvas                        appManager.canvas
- * @param {Storage} deps.storage                      localStorage
+ * @param {Object} deps.canvas                        manager.canvas
+ * @param {Storage} deps.storage                      `manager.storage` adapter
  * @param {string} deps.initialName                   '' for new
  * @param {(newName: string) => void} deps.onRenameCommitted   typically `navigateTo`
  * @param {() => boolean} [deps.canRename]            gate (e.g. !isNew until first save)

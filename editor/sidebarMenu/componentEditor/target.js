@@ -1,9 +1,8 @@
-import { appManager } from '../../instance.js';
 import { componentEditState } from '../../utils/state.js';
 import { setComponentEditTarget } from './helpers.js';
 import { renderInfoPanel } from './render.js';
 
-export function handleElementClick(event) {
+export function handleElementClick(event, manager) {
     const rawId = event.currentTarget.getAttribute('id');
     if (!rawId) return;
     // Items inside the resolved view are keyed off rendered ids like
@@ -20,16 +19,16 @@ export function handleElementClick(event) {
     const topSegment = rawId.split('.')[0];
     if (topSegment.startsWith(rootPrefix)) {
         const contentKey = topSegment.slice(rootPrefix.length);
-        const def = appManager.canvas.components[componentName];
+        const def = manager.canvas.components[componentName];
         if (def?.content && Object.hasOwn(def.content, contentKey) && !def.content[contentKey].component) {
             setComponentEditTarget(contentKey);
-            renderInfoPanel();
+            renderInfoPanel(manager);
             highlightTarget();
             return;
         }
     }
     // Imported: walk root content for a `component:` ref matching the top id prefix.
-    const def = appManager.canvas.components[componentName];
+    const def = manager.canvas.components[componentName];
     const importedComponentName = topSegment.split('_')[0];
     const importerKey = def?.content
         ? Object.entries(def.content).find(([, v]) => v?.component === importedComponentName)?.[0]
@@ -38,7 +37,7 @@ export function handleElementClick(event) {
     componentEditState.targetIsImported = true;
     componentEditState.targetElementId = topSegment;
     componentEditState.importedGroupPrefix = importedComponentName;
-    renderInfoPanel();
+    renderInfoPanel(manager);
     highlightTarget();
 }
 

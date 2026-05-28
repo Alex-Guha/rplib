@@ -1,5 +1,4 @@
 import { updateButtonState } from '../core/navigation.js';
-import { appManager } from '../instance.js';
 
 // Component-editor session state. `active` flips while the user is in
 // component-creation mode; the rest of the fields are only meaningful while
@@ -33,9 +32,9 @@ export const abstractEditState = {
     previousRootView: null,     // view to restore on exit
 };
 
-export function setSidebarState(newState) {
-    const previousState = appManager.sidebarState;
-    appManager.sidebarState = newState;
+export function setSidebarState(manager, newState) {
+    const previousState = manager.sidebarState;
+    manager.sidebarState = newState;
 
     // Clear element hover effects
     if (previousState === 'element')
@@ -46,9 +45,9 @@ export function setSidebarState(newState) {
 
     // If a button was highlighted, unhighlight it
     if (previousState !== null && previousState !== 'element')
-        updateButtonState(previousState);
+        updateButtonState(manager, previousState);
 
     // If the new state is from a button, highlight said button
     if (newState !== null && newState !== 'element')
-        updateButtonState(newState);
+        updateButtonState(manager, newState);
 }

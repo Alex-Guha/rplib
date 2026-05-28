@@ -13,30 +13,42 @@ const DEFAULT_LABELS = {
 };
 
 export default class AppManager {
-    constructor({ components, labels = {}, themes: extraThemes = {}, repoUrl = null } = {}) {
+    constructor({ components, labels = {}, themes: extraThemes = {}, repoUrl = null, storage, reporter } = {}) {
         this.themes = { ...builtinThemes, ...extraThemes };
         this.defaultTheme = defaults.THEME;
         this.labels = { ...DEFAULT_LABELS, ...labels };
         this.repoUrl = repoUrl;
+        // Persistence adapter. Defaults to the global localStorage when present
+        // (browser hosts); SSR / Electron with custom storage / test harnesses
+        // pass their own `{ getItem, setItem, removeItem }` shaped object.
+        this.storage = storage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
+        if (!this.storage) {
+            throw new Error('rplib-editor: no storage adapter — pass `storage` to createEditor() when localStorage is unavailable.');
+        }
+        // Diagnostics reporter — same shape as rplib's: `{ error, warn }`.
+        // Routed to the underlying canvas so the lib's diagnostics flow through
+        // the same channel as the editor's.
+        this.reporter = reporter ?? console;
 
         this.canvas = new RPCanvas({
             svgDOM: d3.select("#svg"),
             defaults,
             components,
             eventListenerTargets: {
-                "description": attachElementEventListeners,
-                "references": attachElementEventListeners,
-                "details": attachDetailEventListeners,
+                "description": (el) => attachElementEventListeners(el, this),
+                "references": (el) => attachElementEventListeners(el, this),
+                "details": (el) => attachDetailEventListeners(el, this),
             },
-            elementToggleCallback: checkSettingsToggle,
+            elementToggleCallback: (obj) => checkSettingsToggle(obj, this),
         });
         this.canvas.setTheme(this.defaultTheme);
+        this.canvas.setReporter(this.reporter);
 
         // Fires before the lib updates `currentView` and renders, so settings that affect
         // rendering (e.g. `renderDelay`) apply to this view's render. Pass the incoming
         // view explicitly — `store.currentView` here is still the previous view.
         this.canvas.on('beforeViewChange', ({ view, prevView }) => {
-            if (view !== prevView) initializeSettings(view);
+            if (view !== prevView) initializeSettings(view, this);
         });
         this.canvas.on('afterViewChange', ({ view }) => {
             // Skip persistence for editor-internal transient views (e.g. the
@@ -44,10 +56,10 @@ export default class AppManager {
             // runtime-only components that wouldn't exist on the next boot, so
             // restoring them as a root view would land on a broken page.
             if (!view || !view.startsWith('__')) {
-                saveRootView(this.canvas, localStorage);
+                saveRootView(this.canvas, this.storage);
             }
-            drawNavigation();
-            resetSidebar();
+            drawNavigation(this);
+            resetSidebar(this);
         });
 
         this.currentTheme = this.defaultTheme;
@@ -73,7 +85,7 @@ export default class AppManager {
     }
 
     restoreView(fallbackView) {
-        loadRootView(this.canvas, localStorage, fallbackView);
+        loadRootView(this.canvas, this.storage, fallbackView);
     }
 
     setRepoUrl(url) {

@@ -1,4 +1,3 @@
-import { appManager } from '../../instance.js';
 import { componentEditState } from '../../utils/state.js';
 import {
     KNOWN_SHAPES,
@@ -45,14 +44,14 @@ export function resetAdvancedMode() {
     advancedMode = false;
 }
 
-export function renderInfoPanel() {
+export function renderInfoPanel(manager) {
     const info = document.getElementById('info');
     info.innerHTML = '';
 
     const container = document.createElement('div');
     container.className = 'component-editor';
 
-    const meta = renderMetaRows();
+    const meta = renderMetaRows(manager);
     container.appendChild(meta.importResetRow);
     container.appendChild(meta.addRemoveRow);
 
@@ -60,15 +59,15 @@ export function renderInfoPanel() {
     separator.className = 'ce-separator';
     container.appendChild(separator);
 
-    container.appendChild(renderForm());
+    container.appendChild(renderForm(manager));
 
     info.appendChild(container);
     // Export + Advanced toggle sit outside the scrollable form container so
     // they stay pinned to the bottom of #info.
-    info.appendChild(renderBottomButtons());
+    info.appendChild(renderBottomButtons(manager));
 }
 
-function renderItemIdRow(def) {
+function renderItemIdRow(manager, def) {
     const row = document.createElement('div');
     row.className = 'ce-row';
     const label = document.createElement('label');
@@ -89,7 +88,7 @@ function renderItemIdRow(def) {
             input.value = oldId;
             return;
         }
-        renameItemKey(oldId, newId);
+        renameItemKey(manager, oldId, newId);
     };
     input.addEventListener('blur', commit);
     input.addEventListener('keydown', (e) => {
@@ -101,7 +100,7 @@ function renderItemIdRow(def) {
     return row;
 }
 
-function renderNameRow() {
+function renderNameRow(manager) {
     const row = document.createElement('div');
     row.className = 'ce-row';
 
@@ -117,13 +116,13 @@ function renderNameRow() {
     const commit = () => {
         const newName = input.value.trim();
         if (newName === componentEditState.name) return;
-        const err = validateComponentName(newName);
+        const err = validateComponentName(manager, newName);
         if (err) {
             window.alert(err);
             input.value = componentEditState.name;
             return;
         }
-        renameComponent(componentEditState.name, newName);
+        renameComponent(manager, componentEditState.name, newName);
     };
     input.addEventListener('blur', commit);
     input.addEventListener('keydown', (e) => {
@@ -135,7 +134,7 @@ function renderNameRow() {
     return row;
 }
 
-function renderMetaRows() {
+function renderMetaRows(manager) {
     const importResetRow = document.createElement('div');
     importResetRow.className = 'ce-row ce-meta';
 
@@ -143,7 +142,7 @@ function renderMetaRows() {
     const importLabel = componentEditState.isSeed
         ? 'Import component'
         : (hasNativeTarget ? 'Insert component' : 'Add component at end');
-    const importSelect = renderImportSelect(importLabel);
+    const importSelect = renderImportSelect(manager, importLabel);
 
     const resetBtn = document.createElement('button');
     resetBtn.textContent = 'Reset';
@@ -151,7 +150,7 @@ function renderMetaRows() {
     resetBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (!window.confirm('Reset will discard the current component. Continue?')) return;
-        resetToSeed();
+        resetToSeed(manager);
     });
 
     importResetRow.appendChild(importSelect);
@@ -163,44 +162,44 @@ function renderMetaRows() {
     const addItemBtn = document.createElement('button');
     addItemBtn.textContent = hasNativeTarget ? 'Add item after target' : 'Add item at end';
     addItemBtn.disabled = componentEditState.targetIsImported;
-    addItemBtn.addEventListener('click', (e) => { e.stopPropagation(); addItemAfterTarget(); });
+    addItemBtn.addEventListener('click', (e) => { e.stopPropagation(); addItemAfterTarget(manager); });
     addRemoveRow.appendChild(addItemBtn);
 
-    const def = appManager.canvas.components[componentEditState.name];
+    const def = manager.canvas.components[componentEditState.name];
     const contentKeys = def?.content ? Object.keys(def.content) : [];
     // Only render Remove when it would actually do something — disabled is the
     // wrong affordance in the no-target / single-item cases.
     if (componentEditState.target && !componentEditState.targetIsImported && contentKeys.length > 1) {
         const removeBtn = document.createElement('button');
         removeBtn.textContent = 'Remove target';
-        removeBtn.addEventListener('click', (e) => { e.stopPropagation(); removeTarget(); });
+        removeBtn.addEventListener('click', (e) => { e.stopPropagation(); removeTarget(manager); });
         addRemoveRow.appendChild(removeBtn);
     }
 
     return { importResetRow, addRemoveRow };
 }
 
-function renderForm() {
-    if (componentEditState.target === null) return renderComponentLevelForm();
-    if (componentEditState.targetIsImported) return renderImportedSummary();
-    return renderItemLevelForm();
+function renderForm(manager) {
+    if (componentEditState.target === null) return renderComponentLevelForm(manager);
+    if (componentEditState.targetIsImported) return renderImportedSummary(manager);
+    return renderItemLevelForm(manager);
 }
 
-function renderComponentLevelForm() {
+function renderComponentLevelForm(manager) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-form';
-    const def = appManager.canvas.components[componentEditState.name] || {};
+    const def = manager.canvas.components[componentEditState.name] || {};
 
-    wrap.appendChild(renderNameRow());
+    wrap.appendChild(renderNameRow(manager));
     wrap.appendChild(fieldRow('description', 'textarea', def.description ?? '', (val) => {
-        patchComponentLevel({ description: val === '' ? null : val });
+        patchComponentLevel(manager, { description: val === '' ? null : val });
     }));
-    wrap.appendChild(selectRow('details', detailsOptions(def.details), def.details ?? '', (val) => {
-        patchComponentLevel({ details: val === '' ? null : val });
+    wrap.appendChild(selectRow('details', detailsOptions(manager, def.details), def.details ?? '', (val) => {
+        patchComponentLevel(manager, { details: val === '' ? null : val });
     }, 'none'));
     wrap.appendChild(renderReferencesEditor(
         def.references || [],
-        (next) => patchComponentLevel({ references: next })
+        (next) => patchComponentLevel(manager, { references: next })
     ));
 
     // Passthrough JSON editor for unknown top-level keys
@@ -210,17 +209,17 @@ function renderComponentLevelForm() {
         wrap.appendChild(fieldRow(`${key} (JSON)`, 'textarea', JSON.stringify(value, null, 2), (val) => {
             let parsed;
             try { parsed = JSON.parse(val); } catch { return; }
-            patchComponentLevel({ [key]: parsed });
+            patchComponentLevel(manager, { [key]: parsed });
         }));
     }
 
     return wrap;
 }
 
-function renderImportedSummary() {
+function renderImportedSummary(manager) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-form ce-imported';
-    const def = appManager.canvas.components[componentEditState.name] || {};
+    const def = manager.canvas.components[componentEditState.name] || {};
     const importerKey = componentEditState.target;
     const importerItem = importerKey ? def.content?.[importerKey] : null;
 
@@ -236,14 +235,14 @@ function renderImportedSummary() {
         remove.textContent = 'Remove imported reference';
         remove.addEventListener('click', (e) => {
             e.stopPropagation();
-            appManager.canvas.updateComponent(componentEditState.name, {
+            manager.canvas.updateComponent(componentEditState.name, {
                 content: removeKey(def.content, importerKey),
             });
             componentEditState.target = null;
             componentEditState.targetIsImported = false;
             componentEditState.importedGroupPrefix = null;
             componentEditState.targetElementId = null;
-            renderInfoPanel();
+            renderInfoPanel(manager);
         });
         wrap.appendChild(remove);
     }
@@ -251,78 +250,78 @@ function renderImportedSummary() {
     return wrap;
 }
 
-function renderItemLevelForm() {
+function renderItemLevelForm(manager) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-form';
-    const def = appManager.canvas.components[componentEditState.name] || {};
+    const def = manager.canvas.components[componentEditState.name] || {};
     const item = def.content?.[componentEditState.target] || {};
 
     // id rename (must come first; everything else patches under the current id)
-    wrap.appendChild(renderItemIdRow(def));
+    wrap.appendChild(renderItemIdRow(manager, def));
 
     // shape
     wrap.appendChild(selectRow('shape', KNOWN_SHAPES, item.shape ?? 'box', (val) => {
-        patchItem({ shape: val });
+        patchItem(manager, { shape: val });
     }));
     if (item.shape === 'trapezoid' || item.shape === 'triangle') {
         wrap.appendChild(checkboxRow('flipped', !!item.flipped, (val) => {
-            patchItem({ flipped: val ? true : null });
+            patchItem(manager, { flipped: val ? true : null });
         }));
     }
 
     // -- positioning --
     wrap.appendChild(sectionSeparator('positioning'));
     wrap.appendChild(selectRow('position', POSITION_OPTIONS, item.position ?? '', (val) => {
-        patchItem({ position: val === '' ? null : val });
+        patchItem(manager, { position: val === '' ? null : val });
     }, 'right'));
     const siblingIds = Object.keys(def.content || {}).filter(k => k !== componentEditState.target);
     wrap.appendChild(selectRow('previous', ['', ...siblingIds], item.previous ?? '', (val) => {
-        patchItem({ previous: val === '' ? null : val });
+        patchItem(manager, { previous: val === '' ? null : val });
     }, 'none'));
     if (advancedMode) {
         wrap.appendChild(pairRow(
-            shapeNumberRow('x', item.x, (val) => patchItem({ x: val })),
-            shapeNumberRow('y', item.y, (val) => patchItem({ y: val })),
+            shapeNumberRow('x', item.x, (val) => patchItem(manager, { x: val })),
+            shapeNumberRow('y', item.y, (val) => patchItem(manager, { y: val })),
         ));
     }
 
     // -- styling --
     wrap.appendChild(sectionSeparator('styling'));
     wrap.appendChild(pairRow(
-        shapeNumberRow('width', item.width, (val) => patchItem({ width: val })),
-        shapeNumberRow('height', item.height, (val) => patchItem({ height: val })),
+        shapeNumberRow('width', item.width, (val) => patchItem(manager, { width: val })),
+        shapeNumberRow('height', item.height, (val) => patchItem(manager, { height: val })),
     ));
     if (advancedMode) {
         wrap.appendChild(pairRow(
-            plainNumberRow('count', item.count, (val) => patchItem({ count: val })),
-            opacityRow(item.opacity, (val) => patchItem({ opacity: val })),
+            plainNumberRow('count', item.count, (val) => patchItem(manager, { count: val })),
+            opacityRow(item.opacity, (val) => patchItem(manager, { opacity: val })),
         ));
         wrap.appendChild(pairRow(
-            shapeNumberRow('xSpacing', item.xSpacing, (val) => patchItem({ xSpacing: val })),
-            shapeNumberRow('ySpacing', item.ySpacing, (val) => patchItem({ ySpacing: val })),
+            shapeNumberRow('xSpacing', item.xSpacing, (val) => patchItem(manager, { xSpacing: val })),
+            shapeNumberRow('ySpacing', item.ySpacing, (val) => patchItem(manager, { ySpacing: val })),
         ));
     }
-    wrap.appendChild(shapeNumberRow('separation', item.separation, (val) => patchItem({ separation: val })));
+    wrap.appendChild(shapeNumberRow('separation', item.separation, (val) => patchItem(manager, { separation: val })));
     if (item.shape === 'trapezoid') {
-        wrap.appendChild(plainNumberRow('shortSide', item.shortSide, (val) => patchItem({ shortSide: val })));
+        wrap.appendChild(plainNumberRow('shortSide', item.shortSide, (val) => patchItem(manager, { shortSide: val })));
     }
 
     // -- content --
     wrap.appendChild(sectionSeparator('content'));
     wrap.appendChild(fieldRow('description', 'textarea', item.description ?? '', (val) => {
-        patchItem({ description: val === '' ? null : val });
+        patchItem(manager, { description: val === '' ? null : val });
     }));
     if (advancedMode) {
-        wrap.appendChild(selectRow('details', detailsOptions(item.details), item.details ?? '', (val) => {
-            patchItem({ details: val === '' ? null : val });
+        wrap.appendChild(selectRow('details', detailsOptions(manager, item.details), item.details ?? '', (val) => {
+            patchItem(manager, { details: val === '' ? null : val });
         }, 'none'));
     }
     wrap.appendChild(renderReferencesEditor(
         item.references || [],
-        (next) => patchItem({ references: next })
+        (next) => patchItem(manager, { references: next })
     ));
-    wrap.appendChild(renderTextEntries(item.text, (next) => patchItem({ text: next })));
-    wrap.appendChild(renderArrowEntries(item));
+    wrap.appendChild(renderTextEntries(manager, item.text, (next) => patchItem(manager, { text: next })));
+    wrap.appendChild(renderArrowEntries(manager, item));
 
     return wrap;
 }
@@ -331,7 +330,7 @@ function renderItemLevelForm() {
 // onChange. Same primitive is used for both item.text and arrow[i].text — the
 // rplib data model treats them identically (arrows.js:129 iterates segment.text
 // the same way text on shapes is handled).
-function renderTextEntries(textValue, onChange) {
+function renderTextEntries(manager, textValue, onChange) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-subgroup';
     const heading = document.createElement('div');
@@ -342,7 +341,7 @@ function renderTextEntries(textValue, onChange) {
     const entries = normalizeArray(textValue);
     // Empty payload commits as null so consumers don't end up with `text: []`.
     const commit = (next) => onChange(next && next.length ? next : null);
-    entries.forEach((entry, idx) => wrap.appendChild(renderTextEntry(entry, idx, entries, commit)));
+    entries.forEach((entry, idx) => wrap.appendChild(renderTextEntry(manager, entry, idx, entries, commit)));
 
     const add = document.createElement('button');
     add.textContent = '+ add text';
@@ -354,7 +353,7 @@ function renderTextEntries(textValue, onChange) {
     return wrap;
 }
 
-function renderTextEntry(entry, idx, entries, commit) {
+function renderTextEntry(manager, entry, idx, entries, commit) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-entry';
     const update = makeEntryUpdater(entries, idx, entry, commit);
@@ -372,7 +371,7 @@ function renderTextEntry(entry, idx, entries, commit) {
         })));
         wrap.appendChild(fieldRow('description', 'textarea', entry.description ?? '',
             (val) => update('description', val)));
-        wrap.appendChild(selectRow('details', detailsOptions(entry.details), entry.details ?? '',
+        wrap.appendChild(selectRow('details', detailsOptions(manager, entry.details), entry.details ?? '',
             (val) => update('details', val), 'none'));
         wrap.appendChild(renderReferencesEditor(entry.references || [], (refs) => update('references', refs, {
             isEmpty: (v) => !(v && v.length),
@@ -389,7 +388,7 @@ function renderTextEntry(entry, idx, entries, commit) {
     return wrap;
 }
 
-function renderArrowEntries(item) {
+function renderArrowEntries(manager, item) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-subgroup';
     const heading = document.createElement('div');
@@ -398,8 +397,8 @@ function renderArrowEntries(item) {
     wrap.appendChild(heading);
 
     const entries = normalizeArray(item.arrow);
-    const commit = (next) => patchItem({ arrow: next && next.length ? next : null });
-    entries.forEach((entry, idx) => wrap.appendChild(renderArrowEntry(entry, idx, entries, commit)));
+    const commit = (next) => patchItem(manager, { arrow: next && next.length ? next : null });
+    entries.forEach((entry, idx) => wrap.appendChild(renderArrowEntry(manager, entry, idx, entries, commit)));
 
     const add = document.createElement('button');
     add.textContent = '+ add arrow';
@@ -411,7 +410,7 @@ function renderArrowEntries(item) {
     return wrap;
 }
 
-function renderArrowEntry(entry, idx, entries, commit) {
+function renderArrowEntry(manager, entry, idx, entries, commit) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-entry';
 
@@ -436,7 +435,7 @@ function renderArrowEntry(entry, idx, entries, commit) {
         (val) => update('previous', val)));
     wrap.appendChild(selectRow('direction', ARROW_DIRECTIONS, entry.direction ?? '',
         (val) => update('direction', val), 'right'));
-    wrap.appendChild(renderTextEntries(entry.text, (textVal) => update('text', textVal)));
+    wrap.appendChild(renderTextEntries(manager, entry.text, (textVal) => update('text', textVal)));
     if (advancedMode) {
         wrap.appendChild(pairRow(
             shapeNumberRow('xOffset', entry.xOffset, (val) => update('xOffset', val)),
@@ -450,7 +449,7 @@ function renderArrowEntry(entry, idx, entries, commit) {
         })));
         wrap.appendChild(fieldRow('description', 'textarea', entry.description ?? '',
             (val) => update('description', val)));
-        wrap.appendChild(selectRow('details', detailsOptions(entry.details), entry.details ?? '',
+        wrap.appendChild(selectRow('details', detailsOptions(manager, entry.details), entry.details ?? '',
             (val) => update('details', val), 'none'));
         wrap.appendChild(renderReferencesEditor(entry.references || [], (refs) => update('references', refs, {
             isEmpty: (v) => !(v && v.length),
@@ -526,13 +525,13 @@ function renderReferencesEditor(references, onChange) {
     return wrap;
 }
 
-function renderBottomButtons() {
+function renderBottomButtons(manager) {
     const row = document.createElement('div');
     row.className = 'ce-bottom-row';
 
     const exportBtn = document.createElement('button');
     exportBtn.textContent = 'Export';
-    exportBtn.addEventListener('click', (e) => { e.stopPropagation(); exportComponent(); });
+    exportBtn.addEventListener('click', (e) => { e.stopPropagation(); exportComponent(manager); });
 
     const advBtn = document.createElement('button');
     advBtn.textContent = 'Advanced';
@@ -540,7 +539,7 @@ function renderBottomButtons() {
     advBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         advancedMode = !advancedMode;
-        renderInfoPanel();
+        renderInfoPanel(manager);
     });
 
     row.appendChild(exportBtn);
@@ -548,7 +547,7 @@ function renderBottomButtons() {
     return row;
 }
 
-function renderImportSelect(label) {
+function renderImportSelect(manager, label) {
     const select = document.createElement('select');
     select.className = 'ce-import-select';
 
@@ -559,7 +558,7 @@ function renderImportSelect(label) {
     placeholder.selected = true;
     select.appendChild(placeholder);
 
-    const choices = Object.keys(appManager.canvas.components)
+    const choices = Object.keys(manager.canvas.components)
         .filter(n => n !== componentEditState.name);
     if (choices.length === 0) {
         const none = document.createElement('option');
@@ -579,7 +578,7 @@ function renderImportSelect(label) {
         e.stopPropagation();
         const choice = select.value;
         if (!choice) return;
-        importComponent(choice);
+        importComponent(manager, choice);
     });
     return select;
 }

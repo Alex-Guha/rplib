@@ -4,7 +4,6 @@
 // `canvas.components[name]` — every form field reads from there on render,
 // every change writes through `canvas.updateComponent`.
 
-import { appManager } from '../../instance.js';
 import { navigateTo, drawNavigation } from '../../core/navigation.js';
 import { setSidebarState, componentEditState } from '../../utils/state.js';
 import {
@@ -17,10 +16,10 @@ import { uniqueComponentName, setComponentEditTarget } from './helpers.js';
 import { handleElementClick, highlightTarget } from './target.js';
 import { renderInfoPanel, resetAdvancedMode } from './render.js';
 
-export function enterComponentMode() {
+export function enterComponentMode(manager) {
     if (componentEditState.active) return;
-    const canvas = appManager.canvas;
-    const name = uniqueComponentName('new_component');
+    const canvas = manager.canvas;
+    const name = uniqueComponentName(manager, 'new_component');
 
     componentEditState.active = true;
     componentEditState.name = name;
@@ -54,21 +53,21 @@ export function enterComponentMode() {
         // drop it now (see rename flow below).
         const pending = componentEditState.pendingRenameFrom;
         if (pending && pending !== currentName) {
-            removeCustomComponent(pending, localStorage);
+            removeCustomComponent(pending, manager.storage);
             componentEditState.pendingRenameFrom = null;
-            clearPendingRename(localStorage);
+            clearPendingRename(manager.storage);
         }
         // Don't persist while we're still on an unedited seed — otherwise the
         // next session sees a saved `new_component` and the name postfix
         // increments even though the user never authored anything.
         if (!componentEditState.isSeed) {
             const def = canvas.components[currentName];
-            if (def) saveCustomComponent(currentName, def, localStorage);
+            if (def) saveCustomComponent(currentName, def, manager.storage);
         }
-        renderInfoPanel();
+        renderInfoPanel(manager);
         highlightTarget();
         // Refresh the back/forward arrows' enabled state for the new history depth.
-        drawNavigation();
+        drawNavigation(manager);
     };
     canvas.on('afterMutate', autosave);
     componentEditState.autosaveUnsubscribe = () => {
@@ -76,9 +75,9 @@ export function enterComponentMode() {
         componentEditState.autosaveUnsubscribe = null;
     };
 
-    componentEditState.onElementClick = handleElementClick;
+    componentEditState.onElementClick = (event) => handleElementClick(event, manager);
     componentEditState.onBackgroundClick = () => {
-        renderInfoPanel();
+        renderInfoPanel(manager);
         highlightTarget();
     };
     // Delegate clicks at the canvas level so every shape is targetable —
@@ -88,30 +87,30 @@ export function enterComponentMode() {
         const tag = event.target?.tagName;
         if (tag !== 'rect' && tag !== 'polygon') return;
         event.stopPropagation();
-        handleElementClick({ currentTarget: event.target });
+        handleElementClick({ currentTarget: event.target }, manager);
     });
 
-    navigateTo(EDITING_VIEW);
+    navigateTo(manager, EDITING_VIEW);
     // navigateTo's afterViewChange hook resets the sidebar, so apply our
     // sidebar state + render after navigation.
-    setSidebarState('edit-button');
+    setSidebarState(manager, 'edit-button');
     // Redraw nav so the arrows pick up the edit-mode handlers (afterViewChange
     // already drew them, but pre-active — at that point they wired to view nav).
-    drawNavigation();
-    renderInfoPanel();
+    drawNavigation(manager);
+    renderInfoPanel(manager);
     highlightTarget();
 }
 
-export function exitComponentMode() {
+export function exitComponentMode(manager) {
     if (!componentEditState.active) return;
-    const canvas = appManager.canvas;
+    const canvas = manager.canvas;
 
     const restoreTo = componentEditState.previousRootView;
     // Unedited seed: drop the orphan entry from canvas.components so the next
     // session doesn't see `new_component` as taken and bump the name to `_a`.
     if (componentEditState.isSeed && componentEditState.name) {
         delete canvas.components[componentEditState.name];
-        removeCustomComponent(componentEditState.name, localStorage);
+        removeCustomComponent(componentEditState.name, manager.storage);
     }
     componentEditState.active = false;
     setComponentEditTarget(null);
@@ -123,7 +122,7 @@ export function exitComponentMode() {
     // Restore the user's saved render-delay preference. initializeSettings will
     // also do this on the navigateTo below, but only if there's a view to
     // restore to — handle it explicitly so the property is correct either way.
-    const renderDelaySetting = appManager.settings['rendering-delay'];
+    const renderDelaySetting = manager.settings['rendering-delay'];
     if (renderDelaySetting) canvas.renderDelay = renderDelaySetting.state;
 
     delete canvas.store.abstractDefinitions[EDITING_VIEW];
@@ -131,16 +130,16 @@ export function exitComponentMode() {
     d3.select('#content').on('click.componentEditor', null);
     d3.selectAll('.component-edit-target, .component-edit-target-group').classed('component-edit-target component-edit-target-group', false);
 
-    setSidebarState(null);
+    setSidebarState(manager, null);
     // Edit-history is per-session; drop entries so they can't leak into the
     // next session (and so consumers like view-nav arrows don't keep stale
     // canEditUndo/Redo state).
     canvas.clearEditHistory();
     if (restoreTo && canvas.store.abstractDefinitions[restoreTo]) {
-        navigateTo(restoreTo);
+        navigateTo(manager, restoreTo);
     } else {
         // No restore view → afterViewChange won't fire, so redraw nav manually
         // to revert the arrows back to view-navigation handlers.
-        drawNavigation();
+        drawNavigation(manager);
     }
 }
