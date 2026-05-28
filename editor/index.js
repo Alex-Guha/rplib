@@ -4,6 +4,7 @@ import { loadAbstractDefinitions } from 'rplib/parser/storage.js';
 import AppManager from './appManager.js';
 import { setAppManager, appManager } from './instance.js';
 import { initSidebar } from './core/sidebar.js';
+import { mountGithubButton } from './core/githubButton.js';
 import { loadSettings, loadCustomComponents } from './utils/storage.js';
 
 /**
@@ -17,13 +18,17 @@ import { loadSettings, loadCustomComponents } from './utils/storage.js';
  *                                      { abstract: { singular: 'Architecture', plural: 'Architectures' } }
  * @param {object} [config.themes]    — extra named theme palettes merged on top of the
  *                                      editor's built-ins (host-supplied themes win on name collisions)
+ * @param {string} [config.repoUrl]   — URL the GitHub button in the lower-left links to.
+ *                                      Defaults to no href (button is shown but inert).
+ *                                      Reassignable at runtime via `manager.setRepoUrl(url)`.
  * @returns {Promise<AppManager>}
  */
-export async function createEditor({ components, dataSource, labels, themes }) {
-    const manager = new AppManager({ components, labels, themes });
+export async function createEditor({ components, dataSource, labels, themes, repoUrl }) {
+    const manager = new AppManager({ components, labels, themes, repoUrl });
     setAppManager(manager);
 
     initSidebar();
+    mountGithubButton(repoUrl);
     loadSettings();
     loadCustomComponents(manager.canvas, localStorage);
 

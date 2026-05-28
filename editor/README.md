@@ -60,6 +60,7 @@ See [Neural-Atlas](https://github.com/Alex-Guha/Neural-Atlas) for a complete con
 | `dataSource` | string \| object | yes | Path to an abstract-definitions text file, **or** a pre-parsed definitions object. |
 | `labels` | object | no | Terminology overrides, e.g. `{ abstract: { singular: 'Architecture', plural: 'Architectures' } }`. Affects sidebar copy. |
 | `themes` | object | no | Extra named theme palettes merged on top of the editor's built-ins. Host-supplied themes win on name collision. |
+| `repoUrl` | string | no | URL the lower-left GitHub button links to. Omitted → button is rendered but inert. Reassign at runtime via `manager.setRepoUrl(url)`. |
 
 Returns a promise resolving to the `AppManager` instance.
 
@@ -71,6 +72,7 @@ Returns a promise resolving to the `AppManager` instance.
 | `manager.labels` | Resolved labels (defaults merged with overrides). |
 | `manager.themes` | Resolved theme map (built-ins + extras). |
 | `manager.restoreView(fallback)` | Load the last saved root view from `localStorage`, falling back to `fallback` if none. |
+| `manager.setRepoUrl(url)` | Update (or clear, with `null`) the GitHub button's link target after boot. |
 
 For lower-level needs (programmatic edits, custom navigation), reach through `manager.canvas` — that's the full rplib API surface.
 

@@ -13,10 +13,11 @@ const DEFAULT_LABELS = {
 };
 
 export default class AppManager {
-    constructor({ components, labels = {}, themes: extraThemes = {} } = {}) {
+    constructor({ components, labels = {}, themes: extraThemes = {}, repoUrl = null } = {}) {
         this.themes = { ...builtinThemes, ...extraThemes };
         this.defaultTheme = defaults.THEME;
         this.labels = { ...DEFAULT_LABELS, ...labels };
+        this.repoUrl = repoUrl;
 
         this.canvas = new RPCanvas(
             d3.select("#svg"),
@@ -73,5 +74,16 @@ export default class AppManager {
 
     restoreView(fallbackView) {
         loadRootView(this.canvas, localStorage, fallbackView);
+    }
+
+    setRepoUrl(url) {
+        this.repoUrl = url || null;
+        const anchor = document.getElementById('github-button');
+        if (!anchor) return;
+        if (this.repoUrl) {
+            anchor.setAttribute('href', this.repoUrl);
+        } else {
+            anchor.removeAttribute('href');
+        }
     }
 }
