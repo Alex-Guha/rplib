@@ -1,5 +1,5 @@
 import { navigateTo } from '../core/navigation.js';
-import { setSidebarState, componentEditState } from '../utils/state.js'
+import { setSidebarState, componentEditState, abstractEditState } from '../utils/state.js'
 import { appendMultilineText } from '../utils/dom.js';
 
 import { appManager } from '../instance.js';
@@ -11,6 +11,16 @@ export function initSidebar() {
 
 // Resets the sidebar to its default state
 export function resetSidebar() {
+    // Abstract-edit mode pins the CodeMirror editor in the #info pane.
+    // Background clicks remount the editor (overriding whatever element info
+    // was shown); afterViewChange just re-runs the same remount. Element
+    // clicks themselves still wipe #info to show element details — they go
+    // through updateInfo, not resetSidebar.
+    if (abstractEditState.active) {
+        abstractEditState.restoreInfoPanel?.();
+        return;
+    }
+
     // In component-edit mode, background clicks deselect the current target
     // and surface the component-level form instead of wiping the panel.
     // Clear sidebarState so any open menu nav button (settings/views) drops
@@ -167,7 +177,7 @@ export function updateInfo(content) {
     const element = document.getElementById('info');
     element.innerHTML = ""; // Use innerHTML for consistency with appendChild usage
 
-    // Replace placeholders with architecture property values
+    // Replace placeholders with abstract property values
     content = replacePlaceholders(content, appManager.canvas.store.abstractDefinitions[appManager.canvas.store.rootView].properties || {});
 
     let currentIndex = 0;
@@ -183,7 +193,7 @@ export function updateInfo(content) {
     }
 }
 
-// Helper function to replace {{property}} placeholders with values from architecture properties
+// Helper function to replace {{property}} placeholders with values from abstract properties
 function replacePlaceholders(text, properties) {
     const templateRegex = /\{\{([^}|]+)(\|([^}]+))?\}\}/g;
     return text.replace(templateRegex, (_, propName, _defaultPart, defaultValue) => {

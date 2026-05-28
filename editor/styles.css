@@ -333,6 +333,35 @@ textarea {
 
 #abstract-editor {
     margin-bottom: 10px;
+    flex-grow: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#abstract-editor .cm-editor {
+    flex-grow: 1;
+    min-height: 0;
+    height: 100%;
+}
+
+#abstract-editor .cm-editor.cm-focused {
+    outline: none;
+}
+
+.abstract-editor-buttons {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.abstract-editor-buttons button {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 26px;
+    border-radius: 8px;
+    padding: 0 10px;
 }
 
 .view-title {

@@ -3,7 +3,8 @@ import { showViews } from '../sidebarMenu/viewMenu.js';
 import { createSettings } from '../sidebarMenu/settingsMenu.js';
 import { showInfoOverlay } from './infoOverlay.js';
 import { displayError } from '../utils/error.js';
-import { setSidebarState, componentEditState } from '../utils/state.js'
+import { setSidebarState, componentEditState, abstractEditState } from '../utils/state.js'
+import { exitAbstractMode } from '../sidebarMenu/abstractEditor/index.js';
 
 import { appManager } from '../instance.js';
 
@@ -88,7 +89,7 @@ export const drawNavigation = () => {
     drawButton('forward-button', 100, svg_paths.forward, forwardHandler, forwardEnabled);
     drawButton('reset-button', 150, svg_paths.reset, appManager.canvas.resetZoom, true);
     drawButton('edit-button', 250, svg_paths.edit, showEditOptions, true);
-    // TODO Move these to the right corner of the content area
+    // ? Move these to the right corner of the content area?
     drawButton('settings-button', 200, svg_paths.settings, createSettings, true);
     drawButton('info-button', 300, svg_paths.info, showInfoOverlay, true);
 };
@@ -134,6 +135,17 @@ function drawButton(id, x, shape, clickHandler, isEnabled) {
     if (isEnabled) {
         // Click handler
         group.on('click', function (event) {
+
+            // Clicking any nav button other than `edit` while the abstract
+            // editor is mounted exits edit mode and restores the previous
+            // root view, so the destination handler (settings, views, info)
+            // doesn't see an empty/broken view.
+            if (
+                abstractEditState.active &&
+                clickHandler !== showEditOptions
+            ) {
+                exitAbstractMode();
+            }
 
             // Set persistent hover for menu buttons
             if (clickHandler === showViews || clickHandler === createSettings || clickHandler === showEditOptions) {

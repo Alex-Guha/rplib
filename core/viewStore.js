@@ -2,7 +2,7 @@
 // Rendering and DOM live on RPCanvas; this object holds only data.
 export default class ViewStore {
     constructor() {
-        // Intermediate architecture structures, keyed by abstract name.
+        // Intermediate abstract structures, keyed by abstract name.
         // Entries may have a `properties` field used for {{placeholder}} substitution during text rendering.
         this.abstractDefinitions = {};
 

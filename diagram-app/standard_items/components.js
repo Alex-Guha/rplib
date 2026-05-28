@@ -81,7 +81,7 @@ export const testEverything = {
     ],
     content: {
         everything: {
-            y: -200, separation: 550, // In the testing architecture, the above box_2 is the previous, so this needs to be moved up a little and over a lot.
+            y: -200, separation: 550, // In the testing abstract, the above box_2 is the previous, so this needs to be moved up a little and over a lot.
             // x and position are implicit. They are excluded for the sake of component stitching.
             width: DEFAULTS.SHAPE.width * 2, height: DEFAULTS.SHAPE.height,
             description: "Every Possible Setting except arrow, which require a previous.\n\nShape color and stroke are theme based and not overridable, at least for now. They could easily be, though.",

@@ -1,6 +1,6 @@
 # rplib diagram-app
 
-A small standalone app that exercises [`rplib`](../core/) and [`rplib-editor`](../editor/) using a set of test components and architectures. Use it to develop and verify library changes without depending on a consumer project like Neural-Atlas.
+A small standalone app that exercises [`rplib`](../core/) and [`rplib-editor`](../editor/) using a set of test components and abstracts. Use it to develop and verify library changes without depending on a consumer project like Neural-Atlas.
 
 ## Run
 
@@ -14,7 +14,7 @@ Then open the printed URL (default `http://localhost:8080`).
 ## Layout
 
 - `standard_items/components.js` — test components (`testText`, `testLatex`, `testEverything`, `testSwappable`, `testSegmentedArrows`).
-- `standard_items/architectures.txt` — test architectures (`test`, `testswap`, `testarrows`) wired to the components above.
+- `standard_items/abstract_diagrams.txt` — test abstracts (`test`, `testswap`, `testarrows`) wired to the components above.
 - `index.html`, `main.js` — boot the editor against the test data.
 - `lib/` — small ESM shims for d3 / codemirror so the app can run from `file:`-installed deps without a bundler.
 

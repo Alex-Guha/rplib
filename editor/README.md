@@ -20,7 +20,7 @@ import * as components from './my-components.js';
 
 const manager = await createEditor({
   components,
-  dataSource: './my-architectures.txt',     // path or pre-parsed definitions object
+  dataSource: './my-abstracts.txt',         // path or pre-parsed definitions object
   labels: {
     abstract: { singular: 'Architecture', plural: 'Architectures' },
   },

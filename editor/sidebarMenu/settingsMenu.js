@@ -5,6 +5,7 @@ import { setSidebarState, componentEditState } from '../utils/state.js';
 
 import { appManager } from '../instance.js';
 import { clearAbstractDefinitions } from 'rplib/parser/storage.js';
+import { exportCustomAbstracts, importAbstractFiles } from '../utils/abstractIO.js';
 
 // Handles the click event for the settings button
 export const createSettings = (event) => {
@@ -55,10 +56,20 @@ export const createAdvancedSettings = (event) => {
     const advancedRow = document.createElement('div');
     advancedRow.className = 'advanced-row';
 
+    const exportAbstractsButton = document.createElement('button');
+    exportAbstractsButton.textContent = `Export Custom ${plural}`;
+    exportAbstractsButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!exportCustomAbstracts()) {
+            window.alert(`No ${plural.toLowerCase()} to export.`);
+        }
+    });
+    advancedRow.appendChild(exportAbstractsButton);
+
     const clearButton = document.createElement('button');
-    clearButton.textContent = `Clear Saved ${plural}`;
+    clearButton.textContent = `Clear Custom ${plural}`;
     clearButton.addEventListener('click', async () => {
-        if (await confirmAction(`Clear Saved ${plural}\nAre you sure you want to clear all saved ${plural.toLowerCase()}?\nThis action cannot be undone.`)) {
+        if (await confirmAction(`Clear Custom ${plural}\nAre you sure you want to clear all custom ${plural.toLowerCase()}?\nThis action cannot be undone.`)) {
             clearAbstractDefinitions(appManager.canvas, localStorage);
             window.location.reload();
         }
@@ -88,6 +99,45 @@ export const createAdvancedSettings = (event) => {
     componentRow.appendChild(clearComponentsButton);
 
     infoElement.appendChild(componentRow);
+
+    const importRow = document.createElement('div');
+    importRow.className = 'advanced-row';
+
+    const massImportButton = document.createElement('button');
+    massImportButton.textContent = 'Mass Import';
+    massImportButton.title = `Import a .zip or any combination of .txt (${plural.toLowerCase()}) and .js (components) files`;
+    const massImportInput = document.createElement('input');
+    massImportInput.type = 'file';
+    massImportInput.accept = '.txt,.zip,.js';
+    massImportInput.multiple = true;
+    massImportInput.style.display = 'none';
+    massImportInput.addEventListener('change', async (e) => {
+        e.stopPropagation();
+        const files = massImportInput.files;
+        if (!files || files.length === 0) return;
+        try {
+            const { abstracts, components } = await importAbstractFiles(files);
+            window.alert(`Imported ${abstracts.length} ${plural.toLowerCase()}, ${components.length} component(s).`);
+            if (abstracts.length > 0) {
+                try { appManager.canvas.changeViews(abstracts[0]); } catch { /* noop */ }
+            } else if (components.length > 0) {
+                // Refresh the current view so newly-imported components resolve.
+                try { appManager.canvas.setCurrentView(appManager.canvas.store.currentView); } catch { /* noop */ }
+            }
+        } catch (err) {
+            console.error(err);
+            window.alert(`Import failed: ${err.message}`);
+        } finally {
+            massImportInput.value = '';
+        }
+    });
+    massImportButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        massImportInput.click();
+    });
+    importRow.appendChild(massImportButton);
+    importRow.appendChild(massImportInput);
+    infoElement.appendChild(importRow);
 
     const returnButton = document.createElement('button');
     returnButton.textContent = 'Return';

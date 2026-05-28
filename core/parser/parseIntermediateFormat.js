@@ -1,13 +1,13 @@
 import { setViewStructure, addDetailView } from "./viewStructures.js";
 
 /**
-This file contains functions to parse json definitions of architectures provided by parseArchitecture.js.
-As such, it also contains functions to parse details and components, since they are used in architectures.
+This file contains functions to parse json definitions of abstracts provided by parseAbstractFile.js.
+As such, it also contains functions to parse details and components, since they are used in abstracts.
 
 When rendering, the view needs to strictly consist of subcomponents with their graph-like organization defined.
-parseArchitecture handles converting the abstract architecture definitions, which consist of components,
+parseAbstractDefinition handles converting the abstract definitions, which consist of components,
     to this expected flat view structure by recursively unrolling the components and their content.
-Additionally, when parsing the architecture, we also build the views for any details that are referenced in architecture components.
+Additionally, when parsing the abstract, we also build the views for any details that are referenced in abstract components.
 */
 
 /**
@@ -43,7 +43,7 @@ export function parseAbstractDefinition(store, components, abstractName) {
     Object.assign(rootView.properties, store.abstractDefinitions[abstractName].properties ?? {});
 
     // Stitch together content
-    // See architectures.js for what componentID and swapModules look like
+    // See the abstract definitions file for what componentID and swapModules look like
     Object.entries(store.abstractDefinitions[abstractName].content).forEach(([componentID, swapModules]) => {
         buildComponent(store, components, componentID, rootView, abstractName, undefined, swapModules?.content ?? null);
     });
@@ -76,12 +76,12 @@ export function parseComponentView(store, components, viewName, parentComponentC
     return view;
 }
 
-// Recursively builds the component and adds it to viewDetails. Used for both architectures and details.
+// Recursively builds the component and adds it to viewDetails. Used for both abstracts and details.
 function buildComponent(store, components, componentID, viewDetails, viewName, parentComponentChain = [], swapModules = null) {
     //console.debug(`Building component ${componentID}`);
 
     // Remove any suffixes like _1, _2, etc. to get the base component ID
-    // Why: So that components can be used multiple times in the same architecture
+    // Why: So that components can be used multiple times in the same abstract
     // This generally shouldn't happen, though.
     const cleanedComponentID = componentID.replace(/_\d+$/, '');
 
@@ -224,7 +224,7 @@ function handleDetails(store, components, targetItem, viewName, parentComponentC
         addDetailView(viewName, targetItem.details);
 
     } else if (targetItem.details) {
-        // The detail is unique/architecture-specific
+        // The detail is unique/abstract-specific
         let newDetailName = `${targetItem.details}`;
         let i = 1;
         while (store.views[newDetailName]) {

@@ -90,7 +90,7 @@ loadRootView(canvas, localStorage, /* fallback view name */ 'my_view');
 npm test
 ```
 
-Runs the `node:test`-based parser/serializer round-trip suite under `parser/__tests__/` plus the live-update mutation suite under `__tests__/`. Renderer/canvas DOM tests are still TODO.
+Runs the `node:test`-based parser/serializer round-trip suite under `parser/__tests__/` plus the live-update mutation and partial-redraw suites under `__tests__/` (the latter exercises `renderView` against a stubbed canvas — no DOM). Full d3/DOM renderer tests are still TODO.
 
 ## Live editing
 
@@ -182,19 +182,25 @@ Authored fields the renderer reads:
 
 ```ts
 {
-  shape?: 'rectangle' | 'parallelogram' | 'trapezoid' | 'triangle' | ...,
+  shape?: 'box' | 'triangle' | 'trapezoid',
   width?, height?, opacity?, count?, flipped?, shortSide?,
+  // `count` stacks `count` copies of the shape, offset by xSpacing/ySpacing.
+  // `flipped` mirrors triangle/trapezoid; `shortSide` is the trapezoid's short edge length.
 
-  // Layout, relative to the `previous` item:
-  position?: 'above' | 'below' | 'left' | 'right' | 'left-top' | 'right-bottom' | ...,
+  // Layout, relative to the `previous` item. Unknown values fall through to 'right'.
+  position?: 'above' | 'below' | 'left' | 'right',
   previous?: string,                          // id of the anchor item
   x?, y?, xSpacing?, ySpacing?, separation?,  // overrides; defaults come from `defaults.SHAPE`
 
-  // Text (zero or more):
-  text?:  { text: string,    position?, xOffset?, yOffset?, ... } | array,
-  latexText also supported via `latexText` on a text object,
+  // Text (zero or more). A text object may use `text` (plain) or `latexText` (KaTeX).
+  // `position` is `'<vertical>'` or `'<vertical>-<side>'`, where vertical is one of
+  // 'top' | 'bottom' | 'left' | 'right' | 'center' (default 'top') and side is one of
+  // 'left' | 'right' | 'top' | 'bottom' | 'center' (default 'center'). `color` is either
+  // a numeric palette index (1-based into theme.TEXT_COLOR) or a CSS color string.
+  text?:  { text?: string, latexText?: string, position?, xOffset?, yOffset?, color? }
+        | Array<{ ... }>,
 
-  // Arrows from `previous` to this item:
+  // Arrows from `previous` to this item. See `core/utils/arrows.js` for segmented-arrow shape.
   arrow?: ArrowObject | ArrowObject[],
 
   // Navigation:
@@ -211,8 +217,8 @@ The renderer never writes back to items. Derived layout lives separately in `can
 const myView = {
   properties: { modelName: 'GPT-4' },
   content: {
-    A: { shape: 'rectangle', text: { text: '{{modelName}}' } },
-    B: { shape: 'rectangle', previous: 'A', position: 'right', arrow: {} },
+    A: { shape: 'box', text: { text: '{{modelName}}' } },
+    B: { shape: 'box', previous: 'A', position: 'right', arrow: {} },
   },
 };
 

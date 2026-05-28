@@ -21,6 +21,18 @@ export const componentEditState = {
     autosaveUnsubscribe: null,  // no-op cleanup token (canvas has no `off`); see componentEditor.js
 };
 
+// Abstract-editor session state. `active` flips while the CodeMirror
+// editor is mounted in #info. The same shape as componentEditState — read
+// from core/sidebar.js to avoid wiping the editor on background clicks /
+// afterViewChange, and from sidebarMenu/editMenu.js to make the edit nav
+// button toggle.
+export const abstractEditState = {
+    active: false,
+    teardown: null,             // () => void; called by editMenu toggle / exit
+    restoreInfoPanel: null,     // () => void; called by resetSidebar on background click
+    previousRootView: null,     // view to restore on exit
+};
+
 export function setSidebarState(newState) {
     const previousState = appManager.sidebarState;
     appManager.sidebarState = newState;

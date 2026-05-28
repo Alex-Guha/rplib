@@ -26,7 +26,7 @@ export default function serializeAbstractDefinition(abstractName, structure) {
 }
 
 /**
- * Recursively serializes an architecture structure
+ * Recursively serializes an abstract structure
  * @param {Object} structure The structure object to serialize
  * @param {number} indent The current indentation level
  * @returns {string} Serialized structure

@@ -4,16 +4,16 @@ This document describes the abstract/component DSL consumed by `rplib-editor`'s 
 
 For a runnable example using this DSL, see [`../diagram-app/`](../diagram-app/).
 
-## Architectures
+## Abstracts
 An abstract structure definition, designed for ease of use and prototyping.
 
-Architectures construct a view by stitching together existing components. When a component has swappable elements, the user can specify to override them at this level.
+Abstracts construct a view by stitching together existing components. When a component has swappable elements, the user can specify to override them at this level.
 
 These are what users interact with and define new diagrams in.
 
 ## Syntax:
 ```
-architectureName:
+abstractName:
     componentName
     componentName:
         className: componentName
@@ -39,13 +39,13 @@ A concrete structure definition, allowing for complex diagram creation.
 
 ## Notes:
 - Components can be anything from a single subcomponent (probably with a detail reference) to complex diagrams such as the attention mechanism.
-- These are not intended to be created directly by the average user, instead used as building blocks to construct new diagrams via architecture specifications.
+- These are not intended to be created directly by the average user, instead used as building blocks to construct new diagrams via abstract specifications.
 - Components can be constructed from both subcomponents and other components.
 - In any text or info string, the syntax `{{propertyName|defaultValue}}` can be used to allow for dynamic text.
-    - The `propertyName` gets specified in architecture properties, and if it isn't, the default value is used.
+    - The `propertyName` gets specified in abstract properties, and if it isn't, the default value is used.
 
 ## Rules:
-- Each component must have a unique ID across both components and architectures.
+- Each component must have a unique ID across both components and abstracts.
 - Component IDs cannot end with underscore + number (e.g., _1, _2, etc.) as these have special meaning in the parser.
 - The first element obviously can't have a `previous`, but also shouldn't have `position` or `x`/`y` (though they can if needed).
 - The last element should be positioned on the same y level as the first element, so that component chaining has no issues.
@@ -100,12 +100,12 @@ A concrete structure definition, allowing for complex diagram creation.
 - The referenced component diagram essentially gets inserted into the current component's diagram.
 - Value object properties are:
     - `component` *(string)*: The id of the component to insert
-    - `class` *(string)* (Optional): This allows the architecture definition to override the component reference by using the className specified here.
+    - `class` *(string)* (Optional): This allows the abstract definition to override the component reference by using the className specified here.
 - The key still needs to be unique, but isn't used.
 - Generally, the next item after this reference shouldn't have a `previous` set as it will be inferred as the last item in the component being referenced here, but it can if nothing comes after this referenced component in the diagram.
 - Ex: In the decoder component, there is: `attn: { component: 'mha', class: 'selfAttention' }`
     - This means the default attention mechanism to be drawn is the mha component
-    - The architecture can use a different attention mechanism using `selfAttention: gqa` under the decoder
+    - The abstract can use a different attention mechanism using `selfAttention: gqa` under the decoder
 
 #### Otherwise, subcomponent object properties (these are all optional):
 - `shape` *(string)*: Either 'box', 'triangle', or 'trapezoid'.
@@ -169,7 +169,7 @@ A concrete structure definition, allowing for complex diagram creation.
             - Each segment object must have `direction` specified.
             - For example, a 2-segment arrow pointing from a previous item that is to the lower left of the current item would be specified as: `segments: [{ direction: 'right' }, { direction: 'up' }]` or `segments: [{ direction: 'up' }, { direction: 'right' }]`, depending on whether you want the arrow to first go right or up.
             - For more advanced behavior, more segments can be added and `extraLength` can be specified. Segments that do not have `extraLength` specified will automatically infer their length based on the net distance between items after adding in the `extraLength`s that are specified.
-                - See the testarrows architecture and testSegmentedArrows component for examples of this.
+                - See the testarrows abstract and testSegmentedArrows component for examples of this.
                 - Another example of clever usage of segmented arrows is seen at the end of the decoder_abstract component, where it is used to create a bracket shape in the diagram.
         - Advanced positioning properties:
             - `previous` *(string)*: Which item to draw the arrow from

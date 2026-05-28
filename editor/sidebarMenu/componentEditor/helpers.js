@@ -2,7 +2,7 @@ import { appManager } from '../../instance.js';
 import { componentEditState } from '../../utils/state.js';
 
 // Components available as a `details` target. The parser's handleDetails path
-// only resolves names that exist in `canvas.components` (architectures in
+// only resolves names that exist in `canvas.components` (abstracts in
 // abstractDefinitions aren't supported as detail targets), so the dropdown
 // mirrors that. Excludes the currently-edited component to prevent
 // self-referential cycles, and preserves an out-of-list current value so

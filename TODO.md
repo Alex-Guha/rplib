@@ -1,4 +1,4 @@
-### Improve architecture edit mode (editMenu.js)
+### Improve abstract edit mode (editMenu.js)
 - better state tracking
 - Code Mirror 5
 - Export
@@ -6,17 +6,17 @@
 ### Core Features
 #### Importing
 - Allow for importing the following, so that users may define and share custom versions of each, especially for developing diagrams before adding them to the central repo
-  - The architecture yaml-like
+  - The abstract yaml-like
   - Individual components
 - Exporting should be handled in the editing section below
 - No point in exporting/importing the full rendered svg, info/references/details don't translate without the accompanying renderer
 - Save imported stuff to local storage and recombine with predefined stuff on load
 
 #### Editing and Exporting
-- Architecture editing mode (making architectures out of components)
+- Abstract editing mode (making abstracts out of components)
   - Have some way for the user to select from the component list instead of having them type out the component they want to add
-  - There should be an export button, which downloads the custom/modified architecture(s)
-- Potentially add a way to export both the architecture and the list of components together, in case a user made a custom architecture containing custom components
+  - There should be an export button, which downloads the custom/modified abstract(s)
+- Potentially add a way to export both the abstract and the list of components together, in case a user made a custom abstract containing custom components
 - Consider what the references box could be used for. Maybe that becomes the text entry field for the component editing mode, where a user can select "Edit info" and type in this.
 - For all of these, there should be auto saving to local storage
 - When users want to move components inside components, auto create an empty point before the componet with no separation and move that, implicitly repositioning the component without requiring edits to it
@@ -45,7 +45,7 @@
 ## Low Priority
 
 ### Comparison
-Add the ability to compare two architectures visually (highlighting the differences between generations)
+Add the ability to compare two abstracts visually (highlighting the differences between generations)
 
 ### Drag and drop editing
 - make it possible to click and drag an element, and have all subsequent elements in the graph move with it

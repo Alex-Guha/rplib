@@ -12,7 +12,7 @@ export default function drawText(self, textObject, item, itemLayout, callback, i
     // Don't render the text if it's been toggled off. It is up to the user how this toggle should be checked.
     if (callback && callback(textObject)) return;
 
-    // Using architecture specific properties, replace any {{property}} placeholders with the corresponding property.
+    // Using abstract specific properties, replace any {{property}} placeholders with the corresponding property.
     // Resolved into a local string; the parsed textObject is not mutated.
     const templateRegex = /\{\{([^}|]+)(\|([^}]+))?\}\}/g;
     const applyPlaceholders = (text, properties) =>

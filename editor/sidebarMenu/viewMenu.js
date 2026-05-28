@@ -22,36 +22,36 @@ export const showViews = (event) => {
     buildViewTree(appManager.canvas.store.rootView, viewDropdown);
     infoElement.appendChild(viewDropdown);
 
-    const archTitle = document.createElement('div');
-    archTitle.textContent = appManager.labels.abstract.plural;
-    archTitle.className = 'view-title';
-    archTitle.style.marginTop = '30px';
-    infoElement.appendChild(archTitle);
+    const abstractTitle = document.createElement('div');
+    abstractTitle.textContent = appManager.labels.abstract.plural;
+    abstractTitle.className = 'view-title';
+    abstractTitle.style.marginTop = '30px';
+    infoElement.appendChild(abstractTitle);
 
-    const archMenu = document.createElement('div');
-    archMenu.className = 'view-container';
+    const abstractMenu = document.createElement('div');
+    abstractMenu.className = 'view-container';
 
-    Object.keys(appManager.canvas.store.abstractDefinitions).forEach(architecture => {
-        if (architecture === appManager.canvas.store.rootView) return;
+    Object.keys(appManager.canvas.store.abstractDefinitions).forEach(abstractName => {
+        if (abstractName === appManager.canvas.store.rootView) return;
         // The component editor mounts a transient abstract definition to host
-        // the in-progress component; it isn't a real architecture and shouldn't
+        // the in-progress component; it isn't a real abstract and shouldn't
         // appear in the navigable list.
-        if (architecture.startsWith('__')) return;
-        const architectureName = document.createElement('div');
-        architectureName.textContent = adjustName(architecture);
-        architectureName.className = 'view-item';
+        if (abstractName.startsWith('__')) return;
+        const abstractItem = document.createElement('div');
+        abstractItem.textContent = adjustName(abstractName);
+        abstractItem.className = 'view-item';
 
-        architectureName.addEventListener('click', () => {
+        abstractItem.addEventListener('click', () => {
             if (componentEditState.active) exitComponentMode();
-            navigateTo(architecture);
+            navigateTo(abstractName);
             showViews(event);
             setSidebarState('views-button');
         });
 
-        archMenu.appendChild(architectureName);
+        abstractMenu.appendChild(abstractItem);
     });
 
-    infoElement.appendChild(archMenu);
+    infoElement.appendChild(abstractMenu);
 };
 
 // Helper function to build the tree structure recursively
