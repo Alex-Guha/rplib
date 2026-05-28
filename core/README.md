@@ -192,12 +192,12 @@ Authored fields the renderer reads:
   previous?: string,                          // id of the anchor item
   x?, y?, xSpacing?, ySpacing?, separation?,  // overrides; defaults come from `defaults.SHAPE`
 
-  // Text (zero or more). A text object may use `text` (plain) or `latexText` (KaTeX).
-  // `position` is `'<vertical>'` or `'<vertical>-<side>'`, where vertical is one of
-  // 'top' | 'bottom' | 'left' | 'right' | 'center' (default 'top') and side is one of
+  // Text (zero or more). `text` wrapped in `$...$` or `$$...$$` is rendered as LaTeX via KaTeX;
+  // otherwise as plain text. `position` is `'<vertical>'` or `'<vertical>-<side>'`, where vertical
+  // is one of 'top' | 'bottom' | 'left' | 'right' | 'center' (default 'top') and side is one of
   // 'left' | 'right' | 'top' | 'bottom' | 'center' (default 'center'). `color` is either
   // a numeric palette index (1-based into theme.TEXT_COLOR) or a CSS color string.
-  text?:  { text?: string, latexText?: string, position?, xOffset?, yOffset?, color? }
+  text?:  { text?: string, position?, xOffset?, yOffset?, color? }
         | Array<{ ... }>,
 
   // Arrows from `previous` to this item. See `core/utils/arrows.js` for segmented-arrow shape.

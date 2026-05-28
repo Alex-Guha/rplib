@@ -140,7 +140,7 @@ A concrete structure definition, allowing for complex diagram creation.
 - `text` *(object or array of objects)*: Used to draw text on the diagram.
     - This can either be a text object, or an array of them.
     - Text object properties:
-        - `text` or `latexText` *(string)* (Required): The text to display, either as plaintext or latex.
+        - `text` *(string)* (Required): The text to display. Wrap the value in `$...$` or `$$...$$` to render as LaTeX (via KaTeX); otherwise it renders as plain text.
         - `position` *(string)*: Two-word combination of where to position the text relative to the item.
             - Options for both words are "top", "bottom", "left", "right".
             - The first word in the text's position property is the arrangement relative to the center of the item. 'top' is default.

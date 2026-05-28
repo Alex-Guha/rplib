@@ -22,13 +22,12 @@ export default function drawText(self, textObject, item, itemLayout, callback, i
     // Read from the resolved root view, not the upstream DSL definitions, so the renderer
     // stays agnostic to whatever produced the intermediate format.
     const properties = self.store.views[self.store.rootView]?.properties ?? {};
-    const isLatex = !!textObject.latexText;
-    const resolved = isLatex
-        ? applyPlaceholders(textObject.latexText, properties)
-        : (textObject.text ? applyPlaceholders(textObject.text, properties) : '');
+    const resolved = textObject.text ? applyPlaceholders(textObject.text, properties) : '';
 
-    // Handle latex differently than normal text
-    const label = isLatex ? createLatexLabel(resolved, textObject) : createTextLabel(resolved, textObject);
+    // A text value wrapped in $...$ or $$...$$ is rendered as LaTeX via KaTeX.
+    const isLatex = isInlineLatex(resolved);
+    const renderSource = isLatex ? stripDelimiters(resolved) : resolved;
+    const label = isLatex ? createLatexLabel(renderSource, textObject) : createTextLabel(renderSource, textObject);
     label.setAttribute('id', id);
 
     // Set the base position of the text, before relative positioning
@@ -102,6 +101,20 @@ function ySide(pos, height, bbox, latex) {
         case 'bottom': return height - (latex ? bbox.height : 0);
         default: return height / 2 + bbox.height / (latex ? -2 : 4);
     }
+}
+
+function isInlineLatex(str) {
+    if (typeof str !== 'string') return false;
+    const s = str.trim();
+    if (s.length < 2) return false;
+    if (s.startsWith('$$') && s.endsWith('$$') && s.length >= 4) return true;
+    if (s.startsWith('$') && s.endsWith('$') && !s.startsWith('$$')) return true;
+    return false;
+}
+
+function stripDelimiters(str) {
+    const s = str.trim();
+    return s.startsWith('$$') ? s.slice(2, -2) : s.slice(1, -1);
 }
 
 // Occasionally, the latex text is clipped on the left and right sides a little bit, not sure why.

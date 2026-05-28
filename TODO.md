@@ -1,24 +1,6 @@
-### Improve abstract edit mode (editMenu.js)
-- better state tracking
-- Code Mirror 5
-- Export
-
 ### Core Features
-#### Importing
-- Allow for importing the following, so that users may define and share custom versions of each, especially for developing diagrams before adding them to the central repo
-  - The abstract yaml-like
-  - Individual components
-- Exporting should be handled in the editing section below
-- No point in exporting/importing the full rendered svg, info/references/details don't translate without the accompanying renderer
-- Save imported stuff to local storage and recombine with predefined stuff on load
-
 #### Editing and Exporting
-- Abstract editing mode (making abstracts out of components)
-  - Have some way for the user to select from the component list instead of having them type out the component they want to add
-  - There should be an export button, which downloads the custom/modified abstract(s)
-- Potentially add a way to export both the abstract and the list of components together, in case a user made a custom abstract containing custom components
 - Consider what the references box could be used for. Maybe that becomes the text entry field for the component editing mode, where a user can select "Edit info" and type in this.
-- For all of these, there should be auto saving to local storage
 - When users want to move components inside components, auto create an empty point before the componet with no separation and move that, implicitly repositioning the component without requiring edits to it
 - click-to-set-previous
 - `swapModules`-style content overrides on imported component references (and the per-item `class` field that enables them)
@@ -30,12 +12,6 @@
 #### Make double-clickable items more noticeable, and add a notice at the top or bottom of the info box to tell the user the item is clickable
 - Potentially use the hover color to make it clearer
 #### Make component settings view specific so that setting ids can be reused in different views
-#### Consider reworking state
-- State could include everything relevant to a users experience, like undo/redo history
-- We could just save the entire state directly whenever a user does anything
-  - we might want to keep a visit record on views and prune ones that aren't visited, depends how large views can conceivably be
-#### Unify text and latexText
-- Detect latex text by normal conventions like looking for a $ symbol at the start
 #### Element hover issue
 - Force the element hover styling when the element's text is clicked as well
 - Will probably be more tricky to implement than it has any right to be

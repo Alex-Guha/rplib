@@ -22,7 +22,6 @@ import {
     sectionSeparator,
     selectRow,
     checkboxRow,
-    radio,
 } from './formPrimitives.js';
 import {
     patchItem,
@@ -358,31 +357,9 @@ function renderTextEntry(entry, idx, entries, commit) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-entry';
 
-    const isLatex = !!entry.latexText;
-    const modeRow = document.createElement('div');
-    modeRow.className = 'ce-row';
-    const plainRadio = radio(`text-mode-${idx}`, 'text', !isLatex);
-    const latexRadio = radio(`text-mode-${idx}`, 'latex', isLatex);
-    plainRadio.input.addEventListener('change', () => {
+    wrap.appendChild(fieldRow('text', 'text', entry.text ?? '', (val) => {
         const next = [...entries];
-        next[idx] = { ...entry, text: entry.text ?? entry.latexText ?? '' };
-        delete next[idx].latexText;
-        commit(next);
-    });
-    latexRadio.input.addEventListener('change', () => {
-        const next = [...entries];
-        next[idx] = { ...entry, latexText: entry.latexText ?? entry.text ?? '' };
-        delete next[idx].text;
-        commit(next);
-    });
-    modeRow.appendChild(plainRadio.label);
-    modeRow.appendChild(latexRadio.label);
-    wrap.appendChild(modeRow);
-
-    const fieldName = isLatex ? 'latexText' : 'text';
-    wrap.appendChild(fieldRow(fieldName, 'text', entry[fieldName] ?? '', (val) => {
-        const next = [...entries];
-        next[idx] = { ...entry, [fieldName]: val };
+        next[idx] = { ...entry, text: val };
         commit(next);
     }));
     wrap.appendChild(selectRow('position', TEXT_POSITIONS, entry.position ?? '', (val) => {
