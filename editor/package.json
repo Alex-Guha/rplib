@@ -1,6 +1,6 @@
 {
   "name": "@alexguha/rplib-editor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Generic diagram-editor UI built on top of rplib.",
   "type": "module",
   "main": "index.js",
@@ -20,6 +20,8 @@
     "core",
     "sidebarMenu",
     "utils",
+    "docs.html",
+    "DSL.md",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
