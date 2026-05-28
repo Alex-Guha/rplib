@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>rplib viewer — docs</title>
+    <style>
+        :root {
+            --bg: #1e1e1e;
+            --panel: #2a2a2a;
+            --text: #e0e0e0;
+            --muted: #9aa0a6;
+            --accent: #00c0c0;
+            --link: #00ffff;
+            --code-bg: rgba(255, 255, 255, 0.07);
+        }
+
+        html, body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: "Quicksand", system-ui, sans-serif;
+            font-weight: 350;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px 80px;
+            line-height: 1.55;
+        }
+
+        main {
+            width: min(820px, 100%);
+        }
+
+        h1 { font-size: 1.8em; margin: 0 0 0.2em; }
+        h2 { font-size: 1.25em; margin: 1.6em 0 0.4em; border-bottom: 1px solid #3a3a3a; padding-bottom: 0.2em; }
+        h3 { font-size: 1.05em; margin: 1.2em 0 0.3em; color: var(--accent); }
+        p { margin: 0.4em 0 0.8em; }
+
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        code {
+            background: var(--code-bg);
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 6px;
+            padding: 12px 14px;
+            overflow-x: auto;
+            font-size: 0.9em;
+        }
+
+        ul { padding-left: 22px; }
+        li { margin-bottom: 6px; }
+
+        .subtitle { color: var(--muted); margin-top: 0; }
+    </style>
+</head>
+
+<body>
+    <main>
+        <h1>rplib viewer — docs</h1>
+        <p class="subtitle">Reference for users of the read-only diagram viewer. Authoring features live in <code>rplib-editor</code>.</p>
+
+        <h2>1. Navigation & interaction</h2>
+        <ul>
+            <li><b>Drag</b> to pan, <b>scroll</b> to zoom, <b>reset</b> to recenter.</li>
+            <li><b>Hover</b> or <b>click</b> a diagram item — its <code>info</code> populates the sidebar's description box and its <code>references</code> populate the references list.</li>
+            <li><b>Double-click</b> an item that has a <code>details</code> reference to drill into a sub-component. Back / forward retrace the view history.</li>
+            <li><b>Views</b> dropdown shows the abstract → view hierarchy. Selecting a view jumps directly.</li>
+            <li><b>Settings</b> contains the theme selector and any per-view toggles supplied by the component's <code>settings</code> array.</li>
+        </ul>
+
+        <h2>2. DSL basics</h2>
+        <p><b>Abstracts</b> stitch existing <b>components</b> together. Abstracts describe a specific diagram; components are the reusable building blocks.</p>
+        <pre>myArchitecture:
+    componentA
+    componentB:
+        slotClass: alternativeComponent
+    properties:
+        modelName: GPT
+    references:
+        "Some paper":
+            authors:
+                Name
+            info: "short description"
+            refType: Paper
+            link: https://example.com</pre>
+        <ul>
+            <li><code>className: componentName</code> swaps a slot for an alternative component.</li>
+            <li><code>properties:</code> feeds text-property replacement (see next section).</li>
+            <li><code>references:</code> attaches sources surfaced in the sidebar when items are hovered.</li>
+        </ul>
+
+        <h2>3. Text property replacement</h2>
+        <p>Inside any <code>text</code> or <code>info</code> string in a component, use:</p>
+        <pre>{{propertyName|defaultValue}}</pre>
+        <p>The value comes from the abstract's <code>properties:</code> block. If the abstract omits it, the <code>defaultValue</code> after <code>|</code> is used.</p>
+        <pre># component
+text: "{{modelName|Model}} layer"
+
+# abstract
+properties:
+    modelName: GPT
+
+# renders as
+GPT layer</pre>
+        <p>Note: a component's <code>settings</code> array (which generates per-view toggles) is a <i>different</i> mechanism than abstract <code>properties:</code>. Settings toggle visibility based on a property flag on subitems; properties substitute text. Don't conflate the two.</p>
+
+        <h2>4. References & info panel</h2>
+        <p>The sidebar reacts to hover / click on diagram items: <code>#info</code> shows the item's description and <code>#references</code> lists its linked sources.</p>
+        <p><code>info</code>, <code>references</code>, and <code>details</code> can be set at the component level (as a default for everything inside) or overridden per-item, per-text, or per-arrow.</p>
+    </main>
+</body>
+
+</html>

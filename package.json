@@ -1,10 +1,11 @@
 {
   "name": "rplib-workspace",
   "private": true,
-  "description": "Workspace root for the rplib core library and rplib-editor UI package.",
+  "description": "Workspace root for the rplib core library, rplib-editor authoring UI, and rplib-viewer read-only UI.",
   "workspaces": [
     "core",
-    "editor"
+    "editor",
+    "viewer"
   ],
   "scripts": {
     "test": "npm test --workspace rplib"

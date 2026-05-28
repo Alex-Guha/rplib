@@ -1,0 +1,52 @@
+{
+  "name": "rplib-viewer",
+  "version": "0.1.0",
+  "description": "Lightweight read-only viewer UI for rplib diagrams. Same canvas + sidebar + navigation as rplib-editor, with all authoring features stripped out.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./styles.css": "./styles.css"
+  },
+  "files": [
+    "index.js",
+    "appManager.js",
+    "defaults.js",
+    "themes.js",
+    "styles.css",
+    "core",
+    "sidebarMenu",
+    "utils",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "diagram",
+    "viewer",
+    "rplib",
+    "svg",
+    "d3",
+    "visualization"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alex-Guha/rplib.git",
+    "directory": "viewer"
+  },
+  "homepage": "https://github.com/Alex-Guha/rplib#readme",
+  "bugs": {
+    "url": "https://github.com/Alex-Guha/rplib/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "d3": "^7.0.0",
+    "katex": "^0.16.0",
+    "rplib": "^0.1.0"
+  },
+  "license": "ISC"
+}
