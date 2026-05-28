@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "types",
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": false
+  },
+  "include": [
+    "canvasManager.js",
+    "defaults.js",
+    "editHistory.js",
+    "layout.js",
+    "mutate.js",
+    "renderView.js",
+    "viewStore.js",
+    "parser/index.js",
+    "parser/parseAbstractFile.js",
+    "parser/parseIntermediateFormat.js",
+    "parser/serializeAbstractFormat.js",
+    "parser/storage.js",
+    "parser/viewStructures.js"
+  ],
+  "exclude": ["__tests__", "parser/__tests__", "types", "node_modules"]
+}

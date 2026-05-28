@@ -1,6 +1,6 @@
 import { navigateTo } from '../core/navigation.js';
 import { setSidebarState, componentEditState } from '../utils/state.js';
-import { getViewStructure } from 'rplib/parser/viewStructures.js';
+import { getViewStructure } from 'rplib/parser';
 import { exitComponentMode } from './componentEditor/index.js';
 
 import { appManager } from '../instance.js';

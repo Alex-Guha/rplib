@@ -1,5 +1,4 @@
-import { parseAbstractDefinitionFile } from 'rplib/parser/parseAbstractFile.js';
-import { loadAbstractDefinitions } from 'rplib/parser/storage.js';
+import { parseAbstractDefinitionFile, loadAbstractDefinitions } from 'rplib/parser';
 
 import AppManager from './appManager.js';
 import { setAppManager, appManager } from './instance.js';

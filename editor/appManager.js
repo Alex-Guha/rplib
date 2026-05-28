@@ -1,5 +1,5 @@
 import RPCanvas from 'rplib';
-import { saveRootView, loadRootView } from 'rplib/parser/storage.js';
+import { saveRootView, loadRootView } from 'rplib/parser';
 import d3 from 'd3';
 
 import { attachElementEventListeners, attachDetailEventListeners, resetSidebar } from './core/sidebar.js';
@@ -19,17 +19,17 @@ export default class AppManager {
         this.labels = { ...DEFAULT_LABELS, ...labels };
         this.repoUrl = repoUrl;
 
-        this.canvas = new RPCanvas(
-            d3.select("#svg"),
+        this.canvas = new RPCanvas({
+            svgDOM: d3.select("#svg"),
             defaults,
             components,
-            {
+            eventListenerTargets: {
                 "description": attachElementEventListeners,
                 "references": attachElementEventListeners,
-                "details": attachDetailEventListeners
+                "details": attachDetailEventListeners,
             },
-            checkSettingsToggle
-        );
+            elementToggleCallback: checkSettingsToggle,
+        });
         this.canvas.setTheme(this.defaultTheme);
 
         // Fires before the lib updates `currentView` and renders, so settings that affect

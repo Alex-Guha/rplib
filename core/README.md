@@ -26,14 +26,11 @@ const myView = {
   },
 };
 
-const canvas = new RPCanvas(
-  d3.select('#svg'),
-  /* defaults */ undefined,
-  /* components */ {},
-  /* eventListenerTargets */ {},
-  /* elementToggleCallback */ null,
-  (canvas, name) => name === 'demo' ? { view: myView, isRoot: true } : null,
-);
+const canvas = new RPCanvas({
+  svgDOM: d3.select('#svg'),
+  resolveView: (canvas, name) =>
+    name === 'demo' ? { view: myView, isRoot: true } : null,
+});
 canvas.setTheme({
   SHAPE_FILL: '#fff', SHAPE_STROKE: '#222',
   ARROW_COLOR: '#222', TEXT_COLOR: ['#222'], OPACITY: 1,
@@ -45,12 +42,15 @@ canvas.changeViews('demo');
 
 ```js
 import RPCanvas from 'rplib';
-import { parseAbstractContent } from 'rplib/parser/parseAbstractFile.js';
-import { loadAbstractDefinitions, loadRootView } from 'rplib/parser/storage.js';
+import {
+  parseAbstractContent,
+  loadAbstractDefinitions,
+  loadRootView,
+} from 'rplib/parser';
 import * as components from './my-components.js';
 import d3 from 'd3';
 
-const canvas = new RPCanvas(d3.select('#svg'), undefined, components, {}, null);
+const canvas = new RPCanvas({ svgDOM: d3.select('#svg'), components });
 canvas.store.abstractDefinitions = parseAbstractContent(definitionText);
 loadAbstractDefinitions(canvas, localStorage);
 loadRootView(canvas, localStorage, /* fallback view name */ 'my_view');
@@ -60,7 +60,7 @@ loadRootView(canvas, localStorage, /* fallback view name */ 'my_view');
 
 | Constructor / method | What it does |
 | --- | --- |
-| `new RPCanvas(svgDOM, defaults?, components?, listenerTargets?, toggleCb?, resolveView?)` | Construct. Only `svgDOM` is required. |
+| `new RPCanvas({ svgDOM, defaults?, components?, eventListenerTargets?, elementToggleCallback?, resolveView? })` | Construct. Only `svgDOM` is required. |
 | `canvas.setTheme(theme)` | Apply theme via CSS variables. No re-render needed for color-only changes. |
 | `canvas.setReporter({ error, warn })` | Inject a diagnostics sink. Default is `console`. |
 | `canvas.changeViews(name)` | Resolve, render, push undo. Throws if `name` can't be resolved. |
@@ -222,9 +222,10 @@ const myView = {
   },
 };
 
-const canvas = new RPCanvas(svg, defaults, /* components */ {}, listeners, toggleCb,
-  (canvas, name) => name === 'demo' ? { view: myView, isRoot: true } : null
-);
+const canvas = new RPCanvas({
+  svgDOM: svg, defaults, eventListenerTargets: listeners, elementToggleCallback: toggleCb,
+  resolveView: (canvas, name) => name === 'demo' ? { view: myView, isRoot: true } : null,
+});
 canvas.changeViews('demo');
 ```
 

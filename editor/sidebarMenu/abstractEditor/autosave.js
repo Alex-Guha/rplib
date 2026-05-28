@@ -6,8 +6,7 @@
 // abstractDefinitions on every keystroke while the user is typing a new name.
 
 import { EditorView } from '@codemirror/view';
-import { parseAbstractContent } from 'rplib/parser/parseAbstractFile.js';
-import { saveAbstractDefinitions } from 'rplib/parser/storage.js';
+import { parseAbstractContent, saveAbstractDefinitions } from 'rplib/parser';
 
 const BODY_DEBOUNCE_MS = 300;
 const RENAME_IDLE_MS = 1500;

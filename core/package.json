@@ -3,21 +3,41 @@
   "version": "0.1.0",
   "description": "Relational-positioning diagram library: anchor-based DSL with recursive composition and in-place component swap.",
   "type": "module",
-  "main": "canvasManager.js",
+  "main": "index.js",
+  "types": "types/index.d.ts",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "build:types": "tsc",
+    "prepublishOnly": "npm test && npm run build:types"
   },
   "exports": {
-    ".": "./canvasManager.js",
-    "./defaults": "./defaults.js",
-    "./layout": "./layout.js",
-    "./mutate.js": "./mutate.js",
-    "./renderView": "./renderView.js",
-    "./parser/*": "./parser/*",
-    "./utils/*": "./utils/*"
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./index.js"
+    },
+    "./defaults": {
+      "types": "./types/defaults.d.ts",
+      "default": "./defaults.js"
+    },
+    "./layout": {
+      "types": "./types/layout.d.ts",
+      "default": "./layout.js"
+    },
+    "./mutate": {
+      "types": "./types/mutate.d.ts",
+      "default": "./mutate.js"
+    },
+    "./renderView": {
+      "types": "./types/renderView.d.ts",
+      "default": "./renderView.js"
+    },
+    "./parser": {
+      "types": "./types/parser/index.d.ts",
+      "default": "./parser/index.js"
+    }
   },
   "files": [
-    "canvasManager.js",
+    "index.js",
     "defaults.js",
     "editHistory.js",
     "layout.js",
@@ -26,15 +46,39 @@
     "viewStore.js",
     "parser",
     "utils",
-    "README.md"
+    "types",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
+  "keywords": [
+    "diagram",
+    "svg",
+    "d3",
+    "visualization",
+    "dsl",
+    "relational-positioning"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alex-Guha/rplib.git",
+    "directory": "core"
+  },
+  "homepage": "https://github.com/Alex-Guha/rplib#readme",
+  "bugs": {
+    "url": "https://github.com/Alex-Guha/rplib/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "peerDependencies": {
     "d3": "^7.0.0",
     "katex": "^0.16.0"
   },
   "devDependencies": {
     "d3": "^7.0.0",
-    "katex": "^0.16.0"
+    "katex": "^0.16.0",
+    "typescript": "^5.4.0"
   },
   "license": "ISC"
 }

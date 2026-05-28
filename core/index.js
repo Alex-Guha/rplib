@@ -60,14 +60,25 @@ function defaultResolveView(canvas, name) {
  */
 export default class RPCanvas {
     /**
-     * @param {Object} svgDOM - d3 selection of the target `<svg>`.
-     * @param {Object} [defaults] - Optional shallow overrides for SHAPE/ARROW. Merged on top of `rplib/defaults.js`.
-     * @param {Object<string, Object>} [components] - Bundled-DSL component map. Required only when using the default resolver.
-     * @param {Object<string, Function>} [eventListenerTargets] - Map of attribute name → listener attacher. Used by `attachListeners`.
-     * @param {(item: Object) => boolean} [elementToggleCallback] - Returning true skips drawing the item.
-     * @param {ResolveView} [resolveView] - Optional adapter for app-owned DSLs. Defaults to the bundled DSL parser.
+     * @param {Object} options
+     * @param {Object} options.svgDOM - d3 selection of the target `<svg>`. Required.
+     * @param {Object} [options.defaults] - Optional shallow overrides for SHAPE/ARROW. Merged on top of `rplib/defaults.js`.
+     * @param {Object<string, Object>} [options.components] - Bundled-DSL component map. Required only when using the default resolver.
+     * @param {Object<string, Function>} [options.eventListenerTargets] - Map of attribute name → listener attacher. Used by `attachListeners`.
+     * @param {(item: Object) => boolean} [options.elementToggleCallback] - Returning true skips drawing the item.
+     * @param {ResolveView} [options.resolveView] - Optional adapter for app-owned DSLs. Defaults to the bundled DSL parser.
      */
-    constructor(svgDOM, defaults, components, eventListenerTargets, elementToggleCallback, resolveView) {
+    constructor({
+        svgDOM,
+        defaults,
+        components,
+        eventListenerTargets,
+        elementToggleCallback,
+        resolveView,
+    } = {}) {
+        if (!svgDOM) {
+            throw new Error('RPCanvas: `svgDOM` is required');
+        }
         this.svgDOM = svgDOM;
         this.canvasDOM = this.svgDOM.append("g").attr("id", "content");
 

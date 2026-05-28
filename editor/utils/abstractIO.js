@@ -3,9 +3,11 @@
 // .txt files and bare components.js files are also accepted on import.
 
 import { appManager } from '../instance.js';
-import { parseAbstractContent } from 'rplib/parser/parseAbstractFile.js';
-import { saveAbstractDefinitions } from 'rplib/parser/storage.js';
-import serializeAbstractDefinition from 'rplib/parser/serializeAbstractFormat.js';
+import {
+    parseAbstractContent,
+    saveAbstractDefinitions,
+    serializeAbstractDefinition,
+} from 'rplib/parser';
 import {
     getAllCustomComponents,
     saveCustomComponent,
