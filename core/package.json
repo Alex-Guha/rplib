@@ -11,6 +11,7 @@
     ".": "./canvasManager.js",
     "./defaults": "./defaults.js",
     "./layout": "./layout.js",
+    "./mutate.js": "./mutate.js",
     "./renderView": "./renderView.js",
     "./parser/*": "./parser/*",
     "./utils/*": "./utils/*"

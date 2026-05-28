@@ -1,6 +1,7 @@
 import { navigateTo } from '../core/navigation.js';
 import { setSidebarState, componentEditState, abstractEditState } from '../utils/state.js'
 import { appendMultilineText } from '../utils/dom.js';
+import { setComponentEditTarget } from '../sidebarMenu/componentEditor/helpers.js';
 
 import { appManager } from '../instance.js';
 
@@ -26,10 +27,7 @@ export function resetSidebar() {
     // Clear sidebarState so any open menu nav button (settings/views) drops
     // its highlight — the edit button is pinned separately while active.
     if (componentEditState.active) {
-        componentEditState.target = null;
-        componentEditState.targetIsImported = false;
-        componentEditState.targetElementId = null;
-        componentEditState.importedGroupPrefix = null;
+        setComponentEditTarget(null);
         setSidebarState(null);
         componentEditState.onBackgroundClick?.();
         return;

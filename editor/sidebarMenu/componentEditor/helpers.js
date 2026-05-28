@@ -22,6 +22,37 @@ export function normalizeArray(value) {
     return Array.isArray(value) ? value : [value];
 }
 
+// Single source of truth for writing the target-related componentEditState
+// fields. Pass `null` to clear (e.g. background click, exit). With a string
+// target, derives `targetElementId` from the active component name. Always
+// resets `importedGroupPrefix` unless explicitly carried over.
+export function setComponentEditTarget(target, { isImported = false, importedGroupPrefix = null } = {}) {
+    componentEditState.target = target;
+    componentEditState.targetIsImported = isImported;
+    componentEditState.importedGroupPrefix = importedGroupPrefix;
+    componentEditState.targetElementId = target
+        ? `${componentEditState.name}_${target}`
+        : null;
+}
+
+// Builds a per-field setter for entries[idx]. Spreads the array and the entry,
+// then either deletes the field (when value is "empty") or assigns the
+// optionally-transformed value, and commits. `opts.isEmpty` overrides the
+// default (`value === '' || value == null`); `opts.transform` runs on the
+// non-empty value before assignment.
+export function makeEntryUpdater(entries, idx, entry, commit) {
+    return (field, value, opts = {}) => {
+        const isEmpty = opts.isEmpty
+            ? opts.isEmpty(value)
+            : (value === '' || value == null);
+        const next = [...entries];
+        next[idx] = { ...entry };
+        if (isEmpty) delete next[idx][field];
+        else next[idx][field] = opts.transform ? opts.transform(value) : value;
+        commit(next);
+    };
+}
+
 export function removeKey(obj, key) {
     const out = {};
     for (const [k, v] of Object.entries(obj)) {

@@ -8,6 +8,7 @@ import {
 } from './constants.js';
 import {
     detailsOptions,
+    makeEntryUpdater,
     normalizeArray,
     removeKey,
     validateItemId,
@@ -356,52 +357,26 @@ function renderTextEntries(textValue, onChange) {
 function renderTextEntry(entry, idx, entries, commit) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-entry';
+    const update = makeEntryUpdater(entries, idx, entry, commit);
 
-    wrap.appendChild(fieldRow('text', 'text', entry.text ?? '', (val) => {
-        const next = [...entries];
-        next[idx] = { ...entry, text: val };
-        commit(next);
-    }));
-    wrap.appendChild(selectRow('position', TEXT_POSITIONS, entry.position ?? '', (val) => {
-        const next = [...entries];
-        next[idx] = { ...entry };
-        if (val === '') delete next[idx].position; else next[idx].position = val;
-        commit(next);
-    }, 'top'));
+    wrap.appendChild(fieldRow('text', 'text', entry.text ?? '', (val) => update('text', val)));
+    wrap.appendChild(selectRow('position', TEXT_POSITIONS, entry.position ?? '',
+        (val) => update('position', val), 'top'));
     if (advancedMode) {
         wrap.appendChild(pairRow(
-            shapeNumberRow('xOffset', entry.xOffset, (val) => {
-                const next = [...entries]; next[idx] = { ...entry };
-                if (val == null) delete next[idx].xOffset; else next[idx].xOffset = val;
-                commit(next);
-            }),
-            shapeNumberRow('yOffset', entry.yOffset, (val) => {
-                const next = [...entries]; next[idx] = { ...entry };
-                if (val == null) delete next[idx].yOffset; else next[idx].yOffset = val;
-                commit(next);
-            }),
+            shapeNumberRow('xOffset', entry.xOffset, (val) => update('xOffset', val)),
+            shapeNumberRow('yOffset', entry.yOffset, (val) => update('yOffset', val)),
         ));
-        wrap.appendChild(fieldRow('color', 'text', entry.color ?? '', (val) => {
-            const next = [...entries]; next[idx] = { ...entry };
-            if (val === '') delete next[idx].color;
-            else next[idx].color = isNaN(Number(val)) ? val : Number(val);
-            commit(next);
-        }));
-        wrap.appendChild(fieldRow('description', 'textarea', entry.description ?? '', (val) => {
-            const next = [...entries]; next[idx] = { ...entry };
-            if (val === '') delete next[idx].description; else next[idx].description = val;
-            commit(next);
-        }));
-        wrap.appendChild(selectRow('details', detailsOptions(entry.details), entry.details ?? '', (val) => {
-            const next = [...entries]; next[idx] = { ...entry };
-            if (val === '') delete next[idx].details; else next[idx].details = val;
-            commit(next);
-        }, 'none'));
-        wrap.appendChild(renderReferencesEditor(entry.references || [], (refs) => {
-            const next = [...entries]; next[idx] = { ...entry };
-            if (refs && refs.length) next[idx].references = refs; else delete next[idx].references;
-            commit(next);
-        }));
+        wrap.appendChild(fieldRow('color', 'text', entry.color ?? '', (val) => update('color', val, {
+            transform: (v) => isNaN(Number(v)) ? v : Number(v),
+        })));
+        wrap.appendChild(fieldRow('description', 'textarea', entry.description ?? '',
+            (val) => update('description', val)));
+        wrap.appendChild(selectRow('details', detailsOptions(entry.details), entry.details ?? '',
+            (val) => update('details', val), 'none'));
+        wrap.appendChild(renderReferencesEditor(entry.references || [], (refs) => update('references', refs, {
+            isEmpty: (v) => !(v && v.length),
+        })));
     }
 
     const remove = document.createElement('button');
@@ -423,20 +398,20 @@ function renderArrowEntries(item) {
     wrap.appendChild(heading);
 
     const entries = normalizeArray(item.arrow);
-    entries.forEach((entry, idx) => wrap.appendChild(renderArrowEntry(entry, idx, entries)));
+    const commit = (next) => patchItem({ arrow: next && next.length ? next : null });
+    entries.forEach((entry, idx) => wrap.appendChild(renderArrowEntry(entry, idx, entries, commit)));
 
     const add = document.createElement('button');
     add.textContent = '+ add arrow';
     add.addEventListener('click', (e) => {
         e.stopPropagation();
-        const next = [...entries, {}];
-        patchItem({ arrow: next });
+        commit([...entries, {}]);
     });
     wrap.appendChild(add);
     return wrap;
 }
 
-function renderArrowEntry(entry, idx, entries) {
+function renderArrowEntry(entry, idx, entries, commit) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-entry';
 
@@ -449,74 +424,44 @@ function renderArrowEntry(entry, idx, entries) {
         remove.textContent = 'remove';
         remove.addEventListener('click', (e) => {
             e.stopPropagation();
-            const next = entries.filter((_, i) => i !== idx);
-            patchItem({ arrow: next.length ? next : null });
+            commit(entries.filter((_, i) => i !== idx));
         });
         wrap.appendChild(remove);
         return wrap;
     }
 
-    wrap.appendChild(fieldRow('previous', 'text', entry.previous ?? '', (val) => {
-        const next = [...entries]; next[idx] = { ...entry };
-        if (val === '') delete next[idx].previous; else next[idx].previous = val;
-        patchItem({ arrow: next });
-    }));
-    wrap.appendChild(selectRow('direction', ARROW_DIRECTIONS, entry.direction ?? '', (val) => {
-        const next = [...entries]; next[idx] = { ...entry };
-        if (val === '') delete next[idx].direction; else next[idx].direction = val;
-        patchItem({ arrow: next });
-    }, 'right'));
-    wrap.appendChild(renderTextEntries(entry.text, (textVal) => {
-        const next = [...entries]; next[idx] = { ...entry };
-        if (textVal == null) delete next[idx].text; else next[idx].text = textVal;
-        patchItem({ arrow: next });
-    }));
+    const update = makeEntryUpdater(entries, idx, entry, commit);
+
+    wrap.appendChild(fieldRow('previous', 'text', entry.previous ?? '',
+        (val) => update('previous', val)));
+    wrap.appendChild(selectRow('direction', ARROW_DIRECTIONS, entry.direction ?? '',
+        (val) => update('direction', val), 'right'));
+    wrap.appendChild(renderTextEntries(entry.text, (textVal) => update('text', textVal)));
     if (advancedMode) {
         wrap.appendChild(pairRow(
-            shapeNumberRow('xOffset', entry.xOffset, (val) => {
-                const next = [...entries]; next[idx] = { ...entry };
-                if (val == null) delete next[idx].xOffset; else next[idx].xOffset = val;
-                patchItem({ arrow: next });
-            }),
-            shapeNumberRow('yOffset', entry.yOffset, (val) => {
-                const next = [...entries]; next[idx] = { ...entry };
-                if (val == null) delete next[idx].yOffset; else next[idx].yOffset = val;
-                patchItem({ arrow: next });
-            }),
+            shapeNumberRow('xOffset', entry.xOffset, (val) => update('xOffset', val)),
+            shapeNumberRow('yOffset', entry.yOffset, (val) => update('yOffset', val)),
         ));
-        wrap.appendChild(plainNumberRow('extraLength', entry.extraLength, (val) => {
-            const next = [...entries]; next[idx] = { ...entry };
-            if (val == null) delete next[idx].extraLength; else next[idx].extraLength = val;
-            patchItem({ arrow: next });
-        }));
-        wrap.appendChild(checkboxRow('noHead', !!entry.noHead, (val) => {
-            const next = [...entries]; next[idx] = { ...entry };
-            if (val) next[idx].noHead = true; else delete next[idx].noHead;
-            patchItem({ arrow: next });
-        }));
-        wrap.appendChild(fieldRow('description', 'textarea', entry.description ?? '', (val) => {
-            const next = [...entries]; next[idx] = { ...entry };
-            if (val === '') delete next[idx].description; else next[idx].description = val;
-            patchItem({ arrow: next });
-        }));
-        wrap.appendChild(selectRow('details', detailsOptions(entry.details), entry.details ?? '', (val) => {
-            const next = [...entries]; next[idx] = { ...entry };
-            if (val === '') delete next[idx].details; else next[idx].details = val;
-            patchItem({ arrow: next });
-        }, 'none'));
-        wrap.appendChild(renderReferencesEditor(entry.references || [], (refs) => {
-            const next = [...entries]; next[idx] = { ...entry };
-            if (refs && refs.length) next[idx].references = refs; else delete next[idx].references;
-            patchItem({ arrow: next });
-        }));
+        wrap.appendChild(plainNumberRow('extraLength', entry.extraLength,
+            (val) => update('extraLength', val)));
+        wrap.appendChild(checkboxRow('noHead', !!entry.noHead, (val) => update('noHead', val, {
+            isEmpty: (v) => !v,
+            transform: () => true,
+        })));
+        wrap.appendChild(fieldRow('description', 'textarea', entry.description ?? '',
+            (val) => update('description', val)));
+        wrap.appendChild(selectRow('details', detailsOptions(entry.details), entry.details ?? '',
+            (val) => update('details', val), 'none'));
+        wrap.appendChild(renderReferencesEditor(entry.references || [], (refs) => update('references', refs, {
+            isEmpty: (v) => !(v && v.length),
+        })));
     }
 
     const remove = document.createElement('button');
     remove.textContent = 'remove';
     remove.addEventListener('click', (e) => {
         e.stopPropagation();
-        const next = entries.filter((_, i) => i !== idx);
-        patchItem({ arrow: next.length ? next : null });
+        commit(entries.filter((_, i) => i !== idx));
     });
     wrap.appendChild(remove);
     return wrap;

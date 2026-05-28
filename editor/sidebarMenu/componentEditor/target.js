@@ -1,5 +1,6 @@
 import { appManager } from '../../instance.js';
 import { componentEditState } from '../../utils/state.js';
+import { setComponentEditTarget } from './helpers.js';
 import { renderInfoPanel } from './render.js';
 
 export function handleElementClick(event) {
@@ -21,10 +22,7 @@ export function handleElementClick(event) {
         const contentKey = topSegment.slice(rootPrefix.length);
         const def = appManager.canvas.components[componentName];
         if (def?.content && Object.hasOwn(def.content, contentKey) && !def.content[contentKey].component) {
-            componentEditState.target = contentKey;
-            componentEditState.targetIsImported = false;
-            componentEditState.importedGroupPrefix = null;
-            componentEditState.targetElementId = topSegment;
+            setComponentEditTarget(contentKey);
             renderInfoPanel();
             highlightTarget();
             return;

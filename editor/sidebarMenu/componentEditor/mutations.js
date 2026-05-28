@@ -6,8 +6,9 @@ import {
     setPendingRename,
     clearPendingRename,
 } from '../../utils/storage.js';
+import { renameInContent } from 'rplib/mutate.js';
 import { EDITING_VIEW, SEED_CONTENT } from './constants.js';
-import { uniqueContentKey } from './helpers.js';
+import { uniqueContentKey, setComponentEditTarget } from './helpers.js';
 import { renderInfoPanel } from './render.js';
 import { highlightTarget } from './target.js';
 
@@ -52,10 +53,7 @@ export function addItemAfterTarget() {
         }
     }
     canvas.updateComponent(name, { content: next });
-    componentEditState.target = newId;
-    componentEditState.targetIsImported = false;
-    componentEditState.importedGroupPrefix = null;
-    componentEditState.targetElementId = `${name}_${newId}`;
+    setComponentEditTarget(newId);
     renderInfoPanel();
     highlightTarget();
 }
@@ -88,10 +86,7 @@ export function removeTarget() {
 
     canvas.updateComponent(name, { content: nextContent });
     const remaining = Object.keys(nextContent);
-    componentEditState.target = remaining[0];
-    componentEditState.targetIsImported = !!nextContent[remaining[0]]?.component;
-    componentEditState.importedGroupPrefix = null;
-    componentEditState.targetElementId = `${name}_${remaining[0]}`;
+    setComponentEditTarget(remaining[0], { isImported: !!nextContent[remaining[0]]?.component });
     renderInfoPanel();
     highlightTarget();
 }
@@ -106,9 +101,7 @@ export function resetToSeed() {
         if (k !== 'content') patch[k] = null;
     }
     canvas.updateComponent(name, patch);
-    componentEditState.target = 'box';
-    componentEditState.targetIsImported = false;
-    componentEditState.targetElementId = `${name}_box`;
+    setComponentEditTarget('box');
     componentEditState.isSeed = true;
     renderInfoPanel();
     highlightTarget();
@@ -127,10 +120,7 @@ export function importComponent(choice) {
         for (const k of Object.keys(cur)) if (!(k in patch)) patch[k] = null;
         canvas.updateComponent(componentEditState.name, patch);
         const firstKey = Object.keys(cloned.content || {})[0];
-        componentEditState.target = firstKey ?? null;
-        componentEditState.targetIsImported = false;
-        componentEditState.importedGroupPrefix = null;
-        componentEditState.targetElementId = firstKey ? `${componentEditState.name}_${firstKey}` : null;
+        setComponentEditTarget(firstKey ?? null);
         componentEditState.isSeed = true;
         renderInfoPanel();
         highlightTarget();
@@ -190,22 +180,7 @@ export function renameItemKey(oldId, newId) {
     const canvas = appManager.canvas;
     const def = canvas.components[name];
     if (!def?.content) return;
-    // Rebuild content preserving insertion order, swapping the key and
-    // rewriting any sibling `previous` / arrow.previous refs that pointed at it.
-    const nextContent = {};
-    for (const [k, v] of Object.entries(def.content)) {
-        const key = k === oldId ? newId : k;
-        const rewritten = { ...v };
-        if (rewritten.previous === oldId) rewritten.previous = newId;
-        if (Array.isArray(rewritten.arrow)) {
-            rewritten.arrow = rewritten.arrow.map(a =>
-                a && a.previous === oldId ? { ...a, previous: newId } : a
-            );
-        } else if (rewritten.arrow && rewritten.arrow.previous === oldId) {
-            rewritten.arrow = { ...rewritten.arrow, previous: newId };
-        }
-        nextContent[key] = rewritten;
-    }
+    const nextContent = renameInContent(def.content, oldId, newId);
     canvas.updateComponent(name, { content: nextContent });
     componentEditState.target = newId;
     componentEditState.targetElementId = `${name}_${newId}`;

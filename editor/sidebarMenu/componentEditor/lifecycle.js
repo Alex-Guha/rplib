@@ -13,7 +13,7 @@ import {
     clearPendingRename,
 } from '../../utils/storage.js';
 import { EDITING_VIEW, SEED_CONTENT } from './constants.js';
-import { uniqueComponentName } from './helpers.js';
+import { uniqueComponentName, setComponentEditTarget } from './helpers.js';
 import { handleElementClick, highlightTarget } from './target.js';
 import { renderInfoPanel, resetAdvancedMode } from './render.js';
 
@@ -24,9 +24,7 @@ export function enterComponentMode() {
 
     componentEditState.active = true;
     componentEditState.name = name;
-    componentEditState.target = 'box';
-    componentEditState.targetIsImported = false;
-    componentEditState.targetElementId = `${name}_box`;
+    setComponentEditTarget('box');
     componentEditState.previousRootView = canvas.store.rootView || '';
     componentEditState.isSeed = true;
     componentEditState.pendingRenameFrom = null;
@@ -116,10 +114,8 @@ export function exitComponentMode() {
         removeCustomComponent(componentEditState.name, localStorage);
     }
     componentEditState.active = false;
+    setComponentEditTarget(null);
     componentEditState.name = null;
-    componentEditState.target = null;
-    componentEditState.targetIsImported = false;
-    componentEditState.targetElementId = null;
     componentEditState.onElementClick = null;
     componentEditState.onBackgroundClick = null;
     if (componentEditState.autosaveUnsubscribe) componentEditState.autosaveUnsubscribe();
