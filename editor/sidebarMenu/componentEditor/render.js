@@ -466,13 +466,31 @@ function renderArrowEntry(manager, entry, idx, entries, commit) {
     return wrap;
 }
 
-function renderReferencesEditor(references, onChange) {
+function renderReferencesEditor(rawReferences, onChange) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-subgroup';
     const heading = document.createElement('div');
     heading.className = 'ce-subheading';
     heading.textContent = 'References';
     wrap.appendChild(heading);
+
+    // References may arrive as an array or as an object keyed by title.
+    // Normalize to array form for editing, and restore the original shape on change.
+    const wasObject = rawReferences && !Array.isArray(rawReferences) && typeof rawReferences === 'object';
+    const references = wasObject
+        ? Object.entries(rawReferences).map(([title, value]) => ({ title, ...(value || {}) }))
+        : (rawReferences || []);
+    const emit = (next) => {
+        if (!wasObject) return onChange(next);
+        if (!next) return onChange(null);
+        const obj = {};
+        for (const entry of next) {
+            const { title, ...rest } = entry || {};
+            const key = title ?? '';
+            obj[key] = rest;
+        }
+        onChange(obj);
+    };
 
     references.forEach((ref, idx) => {
         const entry = document.createElement('div');
@@ -481,7 +499,7 @@ function renderReferencesEditor(references, onChange) {
         keys.forEach((k) => {
             entry.appendChild(fieldRow(k, 'text', String(ref[k] ?? ''), (val) => {
                 const next = references.map((r, i) => i === idx ? { ...r, [k]: val } : r);
-                onChange(next);
+                emit(next);
             }));
         });
         if (advancedMode) {
@@ -492,7 +510,7 @@ function renderReferencesEditor(references, onChange) {
                 const key = window.prompt('Field name?');
                 if (!key) return;
                 const next = references.map((r, i) => i === idx ? { ...r, [key]: '' } : r);
-                onChange(next);
+                emit(next);
             });
             entry.appendChild(addKey);
         }
@@ -502,7 +520,7 @@ function renderReferencesEditor(references, onChange) {
         remove.addEventListener('click', (e) => {
             e.stopPropagation();
             const next = references.filter((_, i) => i !== idx);
-            onChange(next.length ? next : null);
+            emit(next.length ? next : null);
         });
         entry.appendChild(remove);
         wrap.appendChild(entry);
@@ -515,7 +533,7 @@ function renderReferencesEditor(references, onChange) {
             e.stopPropagation();
             const id = window.prompt('Reference id?');
             if (!id) return;
-            onChange([...references, { id }]);
+            emit([...references, wasObject ? { title: id } : { id }]);
         });
         wrap.appendChild(addRef);
     } else if (references.length === 0) {

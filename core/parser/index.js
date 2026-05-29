@@ -22,3 +22,8 @@ export {
     getViewStructure,
     clearViewStructures,
 } from './viewStructures.js';
+
+export {
+    parseDimensionToken,
+    resolveItemDimensions,
+} from './resolveDimensions.js';

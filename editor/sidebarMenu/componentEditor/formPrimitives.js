@@ -1,5 +1,5 @@
 import { SHAPE } from '../../defaults.js';
-import { SHAPE_FIELD_BASIS } from './constants.js';
+import { parseDimensionToken } from '@alexguha/rplib/parser';
 
 export function fieldRow(name, type, value, onCommit) {
     const row = document.createElement('div');
@@ -39,8 +39,11 @@ export function plainNumberRow(name, value, onCommit) {
     return row;
 }
 
-// Numeric field that hangs off a SHAPE default — accepts plain numbers plus
-// "_%", "0._", and "*_" shorthand which all resolve against SHAPE[basis].
+// Numeric field that accepts either a raw number or a dimension token string
+// (see rplib's "Dimension values" grammar: "2h", "0.25w", "h + s + w/4", etc.).
+// Bare numeric input commits as a number; symbolic input commits as the raw
+// string so re-renders preserve the symbolic form. The parser-side resolver
+// converts tokens to numbers at parse time.
 export function shapeNumberRow(name, value, onCommit) {
     const row = document.createElement('div');
     row.className = 'ce-row';
@@ -51,13 +54,17 @@ export function shapeNumberRow(name, value, onCommit) {
     input.type = 'text';
     input.value = value ?? '';
     input.className = 'ce-input';
-    const basis = SHAPE_FIELD_BASIS[name];
     input.addEventListener('change', () => {
-        const parsed = parseShapeNumeric(input.value, basis);
-        // Reflect the canonical numeric back into the input so the next render
-        // doesn't show stale shorthand alongside a committed numeric value.
-        if (parsed != null) input.value = String(parsed);
-        onCommit(parsed);
+        const raw = input.value.trim();
+        if (raw === '') return onCommit(null);
+        const n = Number(raw);
+        if (!isNaN(n)) {
+            onCommit(n);
+            return;
+        }
+        const resolved = parseDimensionToken(raw, SHAPE);
+        if (typeof resolved !== 'number') return; // unparsable — keep the field for the user to fix
+        onCommit(raw);
     });
     row.appendChild(label);
     row.appendChild(input);
@@ -87,18 +94,6 @@ export function opacityRow(value, onCommit) {
     row.appendChild(label);
     row.appendChild(input);
     return row;
-}
-
-export function parseShapeNumeric(raw, basis) {
-    raw = String(raw).trim();
-    if (raw === '') return null;
-    const base = basis ? SHAPE[basis] : null;
-    let m;
-    if (base != null && (m = raw.match(/^(-?\d*\.?\d+)\s*%$/))) return base * parseFloat(m[1]) / 100;
-    if (base != null && (m = raw.match(/^\*\s*(-?\d*\.?\d+)$/))) return base * parseFloat(m[1]);
-    if (base != null && (m = raw.match(/^(-?0\.\d+)$/))) return base * parseFloat(m[1]);
-    const n = parseFloat(raw);
-    return isNaN(n) ? null : n;
 }
 
 // Pair two field rows side-by-side. Each child's label width shrinks so both

@@ -18,11 +18,3 @@ export const TEXT_POSITIONS = [
 ];
 
 export const ARROW_DIRECTIONS = ['', 'up', 'down', 'left', 'right'];
-
-// Which SHAPE default each shape-referencing numeric field hangs off of. Drives
-// the percentage / fractional / multiplier shorthand parsing in parseShapeNumeric.
-export const SHAPE_FIELD_BASIS = {
-    width: 'width', x: 'width', xSpacing: 'width', xOffset: 'width',
-    height: 'height', y: 'height', ySpacing: 'height', yOffset: 'height',
-    separation: 'separation',
-};

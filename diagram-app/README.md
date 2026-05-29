@@ -13,7 +13,7 @@ Then open the printed URL (default `http://localhost:8080`).
 
 ## Layout
 
-- `standard_items/components.js` — test components (`testText`, `testLatex`, `testEverything`, `testSwappable`, `testSegmentedArrows`).
+- `standard_items/components.json` — test components (`testText`, `testLatex`, `testEverything`, `testSwappable`, `testSegmentedArrows`).
 - `standard_items/abstract_diagrams.txt` — test abstracts (`test`, `testswap`, `testarrows`) wired to the components above.
 - `index.html`, `main.js` — boot the editor against the test data.
 - `lib/` — small ESM shims for d3 / codemirror so the app can run from `file:`-installed deps without a bundler.

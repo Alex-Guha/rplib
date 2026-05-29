@@ -1,4 +1,5 @@
 import { setViewStructure, addDetailView } from "./viewStructures.js";
+import { resolveItemDimensions } from "./resolveDimensions.js";
 
 /**
 This file contains functions to parse json definitions of abstracts provided by parseAbstractFile.js.
@@ -19,7 +20,7 @@ Additionally, when parsing the abstract, we also build the views for any details
  * @param {string} abstractName
  * @returns {{ properties: Object, content: Object<string, Object> }} Resolved view.
  */
-export function parseAbstractDefinition(store, components, abstractName) {
+export function parseAbstractDefinition(store, components, abstractName, defaults) {
 
     // The flat view structure
     const rootView = {
@@ -45,7 +46,7 @@ export function parseAbstractDefinition(store, components, abstractName) {
     // Stitch together content
     // See the abstract definitions file for what componentID and swapModules look like
     Object.entries(store.abstractDefinitions[abstractName].content).forEach(([componentID, swapModules]) => {
-        buildComponent(store, components, componentID, rootView, abstractName, undefined, swapModules?.content ?? null);
+        buildComponent(store, components, componentID, rootView, abstractName, defaults, undefined, swapModules?.content ?? null);
     });
     return rootView;
 }
@@ -60,7 +61,7 @@ export function parseAbstractDefinition(store, components, abstractName) {
  * @param {Object} [overrides] - Reserved.
  * @returns {{ content: Object<string, Object> }} Resolved view.
  */
-export function parseComponentView(store, components, viewName, parentComponentChain = [], overrides = null) {
+export function parseComponentView(store, components, viewName, defaults, parentComponentChain = [], overrides = null) {
     //console.debug(`Building view ${viewName}`);
 
     // The flat view structure
@@ -71,13 +72,13 @@ export function parseComponentView(store, components, viewName, parentComponentC
     // Used to display the view nav menu in the sidebar
     setViewStructure(viewName, []);
 
-    buildComponent(store, components, viewName, view, viewName, parentComponentChain, overrides);
+    buildComponent(store, components, viewName, view, viewName, defaults, parentComponentChain, overrides);
 
     return view;
 }
 
 // Recursively builds the component and adds it to viewDetails. Used for both abstracts and details.
-function buildComponent(store, components, componentID, viewDetails, viewName, parentComponentChain = [], swapModules = null) {
+function buildComponent(store, components, componentID, viewDetails, viewName, defaults, parentComponentChain = [], swapModules = null) {
     //console.debug(`Building component ${componentID}`);
 
     // Remove any suffixes like _1, _2, etc. to get the base component ID
@@ -99,7 +100,7 @@ function buildComponent(store, components, componentID, viewDetails, viewName, p
     const componentChain = [...parentComponentChain, componentID];
 
     // Handle component-level detail specification
-    handleDetails(store, components, targetComponent, viewName, componentChain, swapModules);
+    handleDetails(store, components, targetComponent, viewName, defaults, componentChain, swapModules);
 
     // Because we change item id, we need to also change any future references to it
     // So, we map the old id to the new id, and update the previous property if it exists
@@ -124,6 +125,7 @@ function buildComponent(store, components, componentID, viewDetails, viewName, p
                         swapComponent.at(0),
                         viewDetails,
                         viewName,
+                        defaults,
                         componentChain,
                         swapComponent.at(1)?.content ?? null
                     );
@@ -131,7 +133,7 @@ function buildComponent(store, components, componentID, viewDetails, viewName, p
                 }
             }
 
-            buildComponent(store, components, item.component, viewDetails, viewName, componentChain, swapModules);
+            buildComponent(store, components, item.component, viewDetails, viewName, defaults, componentChain, swapModules);
             return;
         }
 
@@ -146,6 +148,7 @@ function buildComponent(store, components, componentID, viewDetails, viewName, p
         idMap[itemID] = newItemID;
 
         viewDetails.content[newItemID] = JSON.parse(JSON.stringify(item));
+        if (defaults?.SHAPE) resolveItemDimensions(viewDetails.content[newItemID], defaults.SHAPE);
 
         if (index === 0 && Object.keys(viewDetails.content).length > 1) {
             if (viewDetails.content[newItemID].previous)
@@ -171,13 +174,13 @@ function buildComponent(store, components, componentID, viewDetails, viewName, p
         if (targetComponent.description && !item.description)
             viewDetails.content[newItemID].description = targetComponent.description;
 
-        handleDetails(store, components, item, viewName, parentComponentChain, swapModules);
+        handleDetails(store, components, item, viewName, defaults, parentComponentChain, swapModules);
 
         if (Array.isArray(item.arrow) && item.arrow.length > 0) {
             for (const arrow of item.arrow)
-                handleDetails(store, components, arrow, viewName, parentComponentChain, swapModules);
+                handleDetails(store, components, arrow, viewName, defaults, parentComponentChain, swapModules);
         } else if (item.arrow) {
-            handleDetails(store, components, item.arrow, viewName, parentComponentChain, swapModules);
+            handleDetails(store, components, item.arrow, viewName, defaults, parentComponentChain, swapModules);
         }
     });
 
@@ -213,11 +216,11 @@ function buildComponent(store, components, componentID, viewDetails, viewName, p
     });
 }
 
-function handleDetails(store, components, targetItem, viewName, parentComponentChain, swapModules) {
+function handleDetails(store, components, targetItem, viewName, defaults, parentComponentChain, swapModules) {
     if (targetItem.details && !store.views[targetItem.details] && (swapModules == null || Object.keys(swapModules).length === 0)) {
         // The detail is generic and hasn't been made yet
         addDetailView(viewName, targetItem.details);
-        store.views[targetItem.details] = parseComponentView(store, components, targetItem.details, parentComponentChain, null);
+        store.views[targetItem.details] = parseComponentView(store, components, targetItem.details, defaults, parentComponentChain, null);
 
     } else if (targetItem.details && store.views[targetItem.details] && (swapModules == null || Object.keys(swapModules).length === 0)) {
         // The detail is generic and already exists
@@ -232,7 +235,7 @@ function handleDetails(store, components, targetItem, viewName, parentComponentC
             i++;
         }
 
-        store.views[newDetailName] = parseComponentView(store, components, targetItem.details, parentComponentChain, swapModules);
+        store.views[newDetailName] = parseComponentView(store, components, targetItem.details, defaults, parentComponentChain, swapModules);
 
         targetItem.details = newDetailName;
         addDetailView(viewName, newDetailName);

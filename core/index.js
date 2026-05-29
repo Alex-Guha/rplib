@@ -24,10 +24,10 @@ import { parseAbstractDefinition, parseComponentView } from "./parser/parseInter
 function defaultResolveView(canvas, name) {
     const store = canvas.store;
     if (store.abstractDefinitions[name]) {
-        return { view: parseAbstractDefinition(store, canvas.components, name), isRoot: true };
+        return { view: parseAbstractDefinition(store, canvas.components, name, canvas.defaults), isRoot: true };
     }
     if (canvas.components[name]) {
-        return { view: parseComponentView(store, canvas.components, name), isRoot: false };
+        return { view: parseComponentView(store, canvas.components, name, canvas.defaults), isRoot: false };
     }
     return null;
 }
@@ -335,7 +335,7 @@ export default class RPCanvas {
      * and records the inverse on the edit-history stack.
      */
     updateItem = (viewName, id, patch) => {
-        const entry = makeUpdateItemEntry(this.store.views[viewName], viewName, id, patch);
+        const entry = makeUpdateItemEntry(this.store.views[viewName], viewName, id, patch, this.defaults?.SHAPE);
         if (!entry) {
             this.reporter.warn(`updateItem: item "${id}" not found in view "${viewName}"`);
             return;

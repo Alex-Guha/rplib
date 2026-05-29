@@ -1,6 +1,6 @@
 # rplib-editor DSL reference
 
-This document describes the abstract/component DSL consumed by `rplib-editor`'s parser. Consumers supply `components` (JS objects) and a `dataSource` of abstract definitions (text in the format below); the editor stitches them into renderable views.
+This document describes the abstract/component DSL consumed by `rplib-editor`'s parser. Consumers supply `components` (JS or JSON objects) and a `dataSource` of abstract definitions (text in the format below); the editor stitches them into renderable views.
 
 For a runnable example using this DSL, see [`../diagram-app/`](../diagram-app/).
 
@@ -43,6 +43,19 @@ A concrete structure definition, allowing for complex diagram creation.
 - Components can be constructed from both subcomponents and other components.
 - In any text or info string, the syntax `{{propertyName|defaultValue}}` can be used to allow for dynamic text.
     - The `propertyName` gets specified in abstract properties, and if it isn't, the default value is used.
+
+## Dimension values:
+Numeric fields like `width`, `height`, `separation`, `xSpacing`, `ySpacing`, `xOffset`, `yOffset`, `extraLength`, and `shortSide` accept either a raw number or a **token string** evaluated against the canvas defaults:
+
+| token | meaning |
+| ----- | ------- |
+| `h`, `y` | `DEFAULTS.SHAPE.height` |
+| `w`, `x` | `DEFAULTS.SHAPE.width` |
+| `s`     | `DEFAULTS.SHAPE.separation` |
+
+Tokens compose with `+`, `-`, `*`, `/`, parens, and unary `-`. A number adjacent to an identifier means multiplication: `"2h"` is `2 * h`. Whitespace is insignificant.
+
+Examples: `"2h"`, `"0.75w"`, `"-w/8"`, `"h + s + w/4"`, `"(h - w) / 2"`. Strings that don't fully parse as a token expression (text, positions, colors) are passed through unchanged.
 
 ## Rules:
 - Each component must have a unique ID across both components and abstracts.
@@ -116,13 +129,13 @@ A concrete structure definition, allowing for complex diagram creation.
 - `position` *(string)*: Where to position this relative to the previous object.
     - Options are: 'right', 'left', 'above', or 'below'
     - Defaults to 'right'
-- `width` *(float)*: The width of the diagram object.
-    - This should almost always be specified as some multiple of the default width, i.e. `width: DEFAULTS.SHAPE.width * 0.75`
-    - Default is specified as 100 in `DEFAULTS.SHAPE.width` in defaults.js.
+- `width` *(float or token string)*: The width of the diagram object.
+    - Prefer a token string like `"0.75w"` over a raw number (see "Dimension values" above).
+    - Default is 100 (`DEFAULTS.SHAPE.width` in defaults.js).
     - For 'trapezoid' shapes, this is the distance between long and short sides.
-- `height` *(float)*: The height of the diagram object.
-    - This should almost always be specified as some multiple of the default height, i.e. `height: DEFAULTS.SHAPE.height * 0.75`
-    - Default is specified as 200 in `DEFAULTS.SHAPE.height` in defaults.js.
+- `height` *(float or token string)*: The height of the diagram object.
+    - Prefer a token string like `"0.75h"` over a raw number (see "Dimension values" above).
+    - Default is 200 (`DEFAULTS.SHAPE.height` in defaults.js).
     - For 'trapezoid' shapes, this is the long side.
 - `info` *(string)*: This contains an explanation about the item, which is shown in the info box when the item is hovered over or clicked on
     - This can be multiple lines by using newline characters `\n`
@@ -196,26 +209,26 @@ A concrete structure definition, allowing for complex diagram creation.
         - If `previous` is specified, this value is relative to the previous item's upper left corner
         - Otherwise, this value is relative to the upper left corner of the canvas
         - Down is positive, up is negative.
-    - `separation` *(float)*: The spacing between this item and the previous item
-        - This should almost always be specified as some multiple of the default separation, i.e. `separation: DEFAULTS.SHAPE.separation * 0.66`
-        - Default is specified as 150 in `DEFAULTS.SHAPE.separation` in defaults.js.
+    - `separation` *(float or token string)*: The spacing between this item and the previous item
+        - Prefer a token string like `"0.66s"` over a raw number (see "Dimension values" above).
+        - Default is 150 (`DEFAULTS.SHAPE.separation` in defaults.js).
 - Advanced styling:
     - `opacity` *(float)*: Sets the opacity of the diagram item
         - Must be between 0 and 1, inclusive.
         - Default is specified by the theme, generally 0.5.
     - `count` *(int)*: Draws multiples of the shape in the diagram
         - Must be greater than 0, default is 1.
-    - `xSpacing` *(float)*: Used when `count` is greater than 1, this defines the horizontal distance between the multiples of the shape.
-        - Default is 25, specified as `DEFAULTS.SHAPE.width / 4`
+    - `xSpacing` *(float or token string)*: Used when `count` is greater than 1, this defines the horizontal distance between the multiples of the shape.
+        - Default is `"w/4"` (25).
         - Right is positive, left is negative.
-        - This should almost always be specified as some multiple of the default width, i.e. `xSpacing: DEFAULTS.SHAPE.width / 8`
-    - `ySpacing` *(float)*: Used when `count` is greater than 1, this defines the vertical distance between the multiples of the shape.
-        - Default is -12.5, specified as `-DEFAULTS.SHAPE.height / 16`
+        - Prefer a token string like `"w/8"` (see "Dimension values" above).
+    - `ySpacing` *(float or token string)*: Used when `count` is greater than 1, this defines the vertical distance between the multiples of the shape.
+        - Default is `"-h/16"` (-12.5).
         - Down is positive, up is negative.
-        - This should almost always be specified as some multiple of the default height, i.e. `ySpacing: -DEFAULTS.SHAPE.height / 8`
+        - Prefer a token string like `"-h/8"` (see "Dimension values" above).
     - `flipped` *(bool)*: If `shape` is 'triangle' or 'trapezoid', this can be used to flip the shape horizontally
-    - `shortSide` *(float)*: If `shape` is 'trapezoid', this can be specified to override the default length of height / 2 for the shorter side of the trapezoid
-        - This should almost always be specified as some multiple of the default height, i.e. `shortSide: DEFAULTS.SHAPE.height * 0.75`
+    - `shortSide` *(float or token string)*: If `shape` is 'trapezoid', this can be specified to override the default length of height / 2 for the shorter side of the trapezoid
+        - Prefer a token string like `"0.75h"` (see "Dimension values" above).
 - Settings properties can be specified here
 
 #### Example contents to draw a square box with text and an arrow:
@@ -223,7 +236,7 @@ A concrete structure definition, allowing for complex diagram creation.
 content: {
     box: {
         shape: 'box',
-        width: DEFAULTS.SHAPE.width * 2,
+        width: "2w",
         info: "Sample text that will appear in the info box",
         text: { text: 'Sample text that will appear above the box' },
         arrow: {

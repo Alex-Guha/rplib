@@ -14,7 +14,6 @@ import {
 import { buildZip, readZip } from './zip.js';
 
 const ABSTRACTS_FILE = 'abstracts.txt';
-const COMPONENTS_FILE = 'components.js';
 
 /**
  * Walk an intermediate-format abstract structure and collect every component
@@ -60,17 +59,49 @@ export function exportCustomAbstracts(manager) {
     return true;
 }
 
-function serializeComponentsModule(componentMap) {
-    return Object.entries(componentMap)
-        .map(([name, def]) => `export const ${name} = ${JSON.stringify(def, null, 2)};\n`)
-        .join('\n');
+function deepEqual(a, b) {
+    if (a === b) return true;
+    if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return false;
+    if (Array.isArray(a) !== Array.isArray(b)) return false;
+    const ak = Object.keys(a), bk = Object.keys(b);
+    if (ak.length !== bk.length) return false;
+    for (const k of ak) {
+        if (!Object.hasOwn(b, k) || !deepEqual(a[k], b[k])) return false;
+    }
+    return true;
 }
 
-// Parse a components.js file (the format produced by serializeComponentsModule
-// or the single-component export from the component editor) into a plain map.
-// Tolerant of trailing semicolons and whitespace; JSON.stringify output is the
-// authoritative source so plain JSON-shaped object literals work.
+// Serialize a component map for export. Prefers JSON: if every value
+// round-trips through `JSON.parse(JSON.stringify(...))` unchanged, the export
+// is lossless and a `.json` file pairs cleanly with the parse-side
+// `with { type: 'json' }` import. Falls back to the `export const ... = ...`
+// `.js` form when JSON would silently drop something (functions, undefined).
+export function serializeComponentsExport(componentMap) {
+    try {
+        const jsonText = JSON.stringify(componentMap, null, 2);
+        if (jsonText !== undefined && deepEqual(componentMap, JSON.parse(jsonText))) {
+            return { text: jsonText + '\n', ext: 'json', mime: 'application/json' };
+        }
+    } catch { /* fall through to .js */ }
+    const text = Object.entries(componentMap)
+        .map(([name, def]) => `export const ${name} = ${JSON.stringify(def, null, 2)};\n`)
+        .join('\n');
+    return { text, ext: 'js', mime: 'text/javascript' };
+}
+
+// Parse a components.js or components.json file into a plain map. For the .js
+// format produced by serializeComponentsModule (or the single-component export
+// from the component editor), it scans `export const` declarations. For a
+// .json file (single object whose top-level keys are component ids), it
+// returns those entries directly.
 export function parseComponentsModule(text) {
+    const trimmed = text.trim();
+    if (trimmed.startsWith('{')) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+        } catch { /* fall through to .js scan */ }
+    }
     const out = {};
     const re = /export\s+const\s+([A-Za-z_$][\w$]*)\s*=\s*/g;
     let m;
@@ -141,9 +172,10 @@ export function exportAbstractBundle(abstractName, manager) {
         return true;
     }
 
+    const componentsExport = serializeComponentsExport(customUsed);
     const blob = buildZip([
         { name: ABSTRACTS_FILE, text: abstractText },
-        { name: COMPONENTS_FILE, text: serializeComponentsModule(customUsed) },
+        { name: `components.${componentsExport.ext}`, text: componentsExport.text },
     ]);
     downloadBlob(blob, `${abstractName}.zip`);
     return true;
@@ -197,8 +229,8 @@ function applyComponentsText(text, manager) {
  * Supports:
  *  - a single `.txt` containing one or more abstracts
  *  - a single `.zip` produced by `exportAbstractBundle`
- *  - a `.txt` + `.js` pair (the unzipped contents of a bundle)
- *  - a single `.js` components file
+ *  - a `.txt` + `.js`/`.json` pair (the unzipped contents of a bundle)
+ *  - a single `.js` or `.json` components file
  * @param {FileList | File[]} files
  * @returns {Promise<{abstracts: string[], components: string[]}>}
  */
@@ -217,11 +249,11 @@ export async function importAbstractFiles(files, manager) {
             for (const entry of entries) {
                 const entryLower = entry.name.toLowerCase();
                 if (entryLower.endsWith('.txt')) abstractsText = entry.text;
-                else if (entryLower.endsWith('.js')) componentsText = entry.text;
+                else if (entryLower.endsWith('.js') || entryLower.endsWith('.json')) componentsText = entry.text;
             }
         } else if (lower.endsWith('.txt')) {
             abstractsText = await readFileAsText(file);
-        } else if (lower.endsWith('.js')) {
+        } else if (lower.endsWith('.js') || lower.endsWith('.json')) {
             componentsText = await readFileAsText(file);
         }
     }

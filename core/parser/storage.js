@@ -34,7 +34,7 @@ export function loadRootView(canvas, storage, fallbackView) {
     // path in `changeViews` doesn't update store.rootView (sidebar shows the wrong root).
     canvas.store.rootViews.add(rootView);
 
-    canvas.store.views[rootView] = parseAbstractDefinition(canvas.store, canvas.components, rootView);
+    canvas.store.views[rootView] = parseAbstractDefinition(canvas.store, canvas.components, rootView, canvas.defaults);
     canvas.setCurrentView(rootView);
 }
 

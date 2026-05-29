@@ -4,6 +4,8 @@
 // these as plain functions (no `this`, no `import 'd3'`) makes them unit-testable
 // in node:test without pulling in the renderer's DOM dependencies.
 
+import { resolveItemDimensions } from "./parser/resolveDimensions.js";
+
 // Sentinel for "this key did not exist on the target" — lets us distinguish
 // "set to undefined" from "delete" when restoring prior state during undo.
 export const MISSING = Symbol('rplib.missing');
@@ -69,15 +71,23 @@ export function renameInContent(content, from, to) {
 // skip), or an entry with `do` already-applicable and `undo` closing over the
 // prior state.
 
-export function makeUpdateItemEntry(view, viewName, id, patch) {
+export function makeUpdateItemEntry(view, viewName, id, patch, shape) {
     const item = view?.content?.[id];
     if (!item) return null;
-    const prev = inversePatch(item, patch);
+    // Resolve token strings ("2h", "w/4", …) against shape so cached resolved
+    // views keep numbers — matches the parse-time pass in buildComponent. The
+    // resolved patch is what we store, so undo capture and replay both see numbers.
+    let resolvedPatch = patch;
+    if (shape) {
+        resolvedPatch = JSON.parse(JSON.stringify(patch));
+        resolveItemDimensions(resolvedPatch, shape);
+    }
+    const prev = inversePatch(item, resolvedPatch);
     return {
         kind: 'updateItem',
         viewName,
         changedIds: [id],
-        do: () => applyPatch(item, patch),
+        do: () => applyPatch(item, resolvedPatch),
         undo: () => applyPatch(item, prev),
     };
 }

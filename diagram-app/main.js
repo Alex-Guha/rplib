@@ -1,5 +1,5 @@
 import { createEditor } from '@alexguha/rplib-editor';
-import * as components from './standard_items/components.js';
+import components from './standard_items/components.json' with { type: 'json' };
 
 window.onload = async () => {
     const manager = await createEditor({

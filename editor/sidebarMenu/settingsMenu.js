@@ -4,7 +4,7 @@ import { confirmAction } from '../utils/error.js';
 import { setSidebarState, componentEditState } from '../utils/state.js';
 
 import { clearAbstractDefinitions } from '@alexguha/rplib/parser';
-import { exportCustomAbstracts, importAbstractFiles } from '../utils/abstractIO.js';
+import { exportCustomAbstracts, importAbstractFiles, serializeComponentsExport } from '../utils/abstractIO.js';
 
 // Handles the click event for the settings button
 export const createSettings = (event, manager) => {
@@ -104,10 +104,10 @@ export const createAdvancedSettings = (event, manager) => {
 
     const massImportButton = document.createElement('button');
     massImportButton.textContent = 'Mass Import';
-    massImportButton.title = `Import a .zip or any combination of .txt (${plural.toLowerCase()}) and .js (components) files`;
+    massImportButton.title = `Import a .zip or any combination of .txt (${plural.toLowerCase()}) and .js/.json (components) files`;
     const massImportInput = document.createElement('input');
     massImportInput.type = 'file';
-    massImportInput.accept = '.txt,.zip,.js';
+    massImportInput.accept = '.txt,.zip,.js,.json';
     massImportInput.multiple = true;
     massImportInput.style.display = 'none';
     massImportInput.addEventListener('change', async (e) => {
@@ -155,14 +155,12 @@ function exportAllCustomComponents(manager) {
         window.alert('No custom components to export.');
         return;
     }
-    const body = names
-        .map(name => `export const ${name} = ${JSON.stringify(map[name], null, 2)};`)
-        .join('\n\n') + '\n';
-    const blob = new Blob([body], { type: 'text/javascript' });
+    const { text, ext, mime } = serializeComponentsExport(map);
+    const blob = new Blob([text], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'custom_components.js';
+    a.download = `custom_components.${ext}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
