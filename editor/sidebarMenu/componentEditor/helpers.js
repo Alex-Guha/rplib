@@ -96,6 +96,7 @@ export function validateComponentName(manager, name) {
 export function validateItemId(id, oldId, def) {
     if (!id) return 'id cannot be empty.';
     if (/_\d+$/.test(id)) return 'id cannot end with _<number> (reserved by parser).';
+    if (/^(0|[1-9]\d*)$/.test(id)) return 'id cannot be integer-like (the JS runtime reorders integer keys, breaking declaration order). Include a letter, hyphen, dot, or leading zero.';
     if (id === oldId) return null;
     if (def?.content && Object.hasOwn(def.content, id)) return `An item named "${id}" already exists.`;
     return null;

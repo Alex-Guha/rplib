@@ -47,9 +47,27 @@ export async function loadDataDir(dataDir, reporter = console) {
             if (key in components) {
                 reporter.warn(`rplib: duplicate component "${key}" — overridden by ${rel}`);
             }
+            assertNoIntegerLikeContentKeys(mod[key], key, rel);
             components[key] = mod[key];
         }
     }));
 
     return { abstractDefinitions, components };
+}
+
+// JS object iteration places integer-string keys ascending before non-integer
+// keys in insertion order. That reorder happens before any code sees the
+// content, silently breaking declaration order and any `previous` reference
+// that depends on it. Apply uniformly to .json and .js — the hazard is the
+// runtime, not the source format.
+export const INTEGER_LIKE_KEY = /^(0|[1-9]\d*)$/;
+export function assertNoIntegerLikeContentKeys(component, componentKey, sourceRel) {
+    if (!component || typeof component !== 'object' || !component.content) return;
+    const offenders = Object.keys(component.content).filter(k => INTEGER_LIKE_KEY.test(k));
+    if (offenders.length === 0) return;
+    throw new Error(
+        `rplib: component "${componentKey}" in ${sourceRel} has integer-like content keys [${offenders.join(', ')}]. ` +
+        `The JS runtime reorders integer-string object keys ascending, which breaks declaration order and \`previous\` references. ` +
+        `Rename these keys to include a non-digit character (letter, hyphen, dot, leading zero).`,
+    );
 }

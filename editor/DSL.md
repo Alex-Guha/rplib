@@ -109,13 +109,24 @@ Examples: `"2h"`, `"0.75w"`, `"-w/8"`, `"h + s + w/4"`, `"(h - w) / 2"`. Strings
 - The keys are item ids, and used to specify relative positioning of items.
 - The values are either references to other components, or subcomponent objects.
 
+#### Item id constraints
+- **Must not be integer-like.** Ids like `"0"`, `"1"`, `"42"` are rejected. The JS runtime reorders integer-string object keys ascending before any code sees them, which silently breaks declaration order and any `previous` reference that depends on it. Same rule whether the component is authored in `.txt`, `.js`, or `.json`. Any non-digit character (letter, hyphen, dot, leading zero like `"01"`) is safe.
+- **Must not end with `_<number>`** (reserved by the parser's component-id suffix-strip logic).
+- **Must be unique within the `content` block.**
+
+#### Declaration order is significant
+- Items are processed top-down. A `previous` reference must point at an item declared *earlier* in the same `content` block.
+- Forward references (pointing at a later sibling) emit a parser warning and the `previous` is left undefined.
+- A `previous` may also reference the implicit tail of an immediately-preceding component reference (see below), but may **not** reach into a referenced component's internals. The only legitimate cross-component link is the implicit head-stitch; out-of-scope `previous` values emit a parser warning.
+- The same scope rules apply to `arrow.previous`.
+
 #### When a value is a reference:
 - The referenced component diagram essentially gets inserted into the current component's diagram.
 - Value object properties are:
     - `component` *(string)*: The id of the component to insert
     - `class` *(string)* (Optional): This allows the abstract definition to override the component reference by using the className specified here.
 - The key still needs to be unique, but isn't used.
-- Generally, the next item after this reference shouldn't have a `previous` set as it will be inferred as the last item in the component being referenced here, but it can if nothing comes after this referenced component in the diagram.
+- Generally, the next item after this reference shouldn't have a `previous` set — its position will be inferred as the last item in the referenced component (the implicit head-stitch). If you do set `previous` on the post-reference item, it must resolve to either an earlier sibling in this `content` block or the prior component reference's tail. It cannot name an internal item of the referenced component; those ids aren't in scope here and an attempt to use them will produce a parser warning.
 - Ex: In the decoder component, there is: `attn: { component: 'mha', class: 'selfAttention' }`
     - This means the default attention mechanism to be drawn is the mha component
     - The abstract can use a different attention mechanism using `selfAttention: gqa` under the decoder
@@ -126,6 +137,7 @@ Examples: `"2h"`, `"0.75w"`, `"-w/8"`, `"h + s + w/4"`, `"(h - w) / 2"`. Strings
 - `previous` *(string)*: The id of the content item that this one should be positioned relative to.
     - This is not inferred and should likely be specified for everything except the first item.
     - The exception being if you want to position this item absolutely for some reason
+    - **Scope:** must reference an earlier sibling in this `content` block, or the implicit tail of an immediately-preceding component reference. Forward references and references into a nested component's internals are user error and emit a parser warning (the resolved value will be `undefined`, breaking the chain).
 - `position` *(string)*: Where to position this relative to the previous object.
     - Options are: 'right', 'left', 'above', or 'below'
     - Defaults to 'right'
@@ -187,6 +199,7 @@ Examples: `"2h"`, `"0.75w"`, `"-w/8"`, `"h + s + w/4"`, `"(h - w) / 2"`. Strings
         - Advanced positioning properties:
             - `previous` *(string)*: Which item to draw the arrow from
                 - Defaults to the same previous item as their parent item.
+                - Same scope rules as the item-level `previous`: earlier sibling in this `content` block or the tail of a prior component reference; never into a referenced component's internals. Violations emit a parser warning.
             - `direction` *(string)*: The direction the arrow points
                 - This should not be touched for normal arrows, as it's inferred from the parent item's relative position
                 - Options are: "up", "down", "left", or "right"

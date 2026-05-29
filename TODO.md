@@ -16,12 +16,6 @@
 - Force the element hover styling when the element's text is clicked as well
 - Will probably be more tricky to implement than it has any right to be
 
-### `idMap` lookups can silently produce `undefined`
-- File: [core/parser/parseIntermediateFormat.js:156-165](core/parser/parseIntermediateFormat.js#L156-L165)
-- `arrow.previous = idMap[arrow.previous]` (and similar) assumes the referenced id has already been processed and renamed. If `previous` points forward, or sits in a nested component scope, the lookup yields `undefined` and the reference chain breaks silently. The `XXX` comment near line 107 suggests the author already suspects the scope is off.
-- Why it matters: hard-to-debug layout/render bugs as components nest more. Will get worse as live-update edits arbitrary slices of the tree.
-- Suggested refactor: do a pre-pass to collect all ids, validate `previous`/`next` references after rename, and either warn or pass `idMap` down through recursion so nested scopes update correctly.
-
 ---
 
 ## Low Priority
@@ -37,11 +31,6 @@ Add the ability to compare two abstracts visually (highlighting the differences 
 
 
 ### Additional QoL
-#### Instructions
-- Add an overlay on webpage first load with indicators for every clickable element telling users how to interact with the app
-  - This should vanish when the user clicks anything
-  - There can be an info button in a corner to reopen the overlay
-- https://chatgpt.com/share/685b28f4-c98c-8001-942b-a7ccb2da2a32
 
 #### Arrows
 - rewrite to allow for multiple previous elements and thus multiple arrows

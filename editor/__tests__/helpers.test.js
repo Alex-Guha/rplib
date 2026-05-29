@@ -45,13 +45,19 @@ test('uniqueComponentName: never appends a _<digit> suffix (parser strips those)
     assert.equal(uniqueComponentName(manager2, 'foo'), 'foo_b');
 });
 
-test('validateItemId: rejects empty, _<digit> suffixes, and collisions', () => {
+test('validateItemId: rejects empty, _<digit> suffixes, integer-like, and collisions', () => {
     const def = { content: { existing: {} } };
     assert.match(validateItemId('', 'old', def), /empty/i);
     assert.match(validateItemId('foo_1', 'old', def), /reserved/i);
+    assert.match(validateItemId('0', 'old', def), /integer-like/i);
+    assert.match(validateItemId('1', 'old', def), /integer-like/i);
+    assert.match(validateItemId('42', 'old', def), /integer-like/i);
     assert.match(validateItemId('existing', 'other', def), /already exists/i);
     assert.equal(validateItemId('existing', 'existing', def), null, 'noop rename');
     assert.equal(validateItemId('fresh', 'old', def), null);
+    assert.equal(validateItemId('01', 'old', def), null, 'leading zero is safe');
+    assert.equal(validateItemId('1a', 'old', def), null, 'letter suffix is safe');
+    assert.equal(validateItemId('item1', 'old', def), null);
 });
 
 test('validateComponentName: rejects empty, _<digit> suffixes, and collisions', () => {

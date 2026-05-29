@@ -105,7 +105,7 @@ function buildComponent(store, components, componentID, viewDetails, viewName, d
     // Because we change item id, we need to also change any future references to it
     // So, we map the old id to the new id, and update the previous property if it exists
     // Why do we change item id? So that subcomponents don't all have to have unique ids across the entire application.
-    const idMap = {}; // XXX This might need to be passed in the buildComponent recursion chain
+    const idMap = {};
 
     // Stitch together content
     // See components.js for what itemID and item look like
@@ -156,16 +156,22 @@ function buildComponent(store, components, componentID, viewDetails, viewName, d
             viewDetails.content[newItemID].previous = Object.keys(viewDetails.content).at(-2);
 
         } else if (viewDetails.content[newItemID].previous) {
-            viewDetails.content[newItemID].previous = idMap[item.previous];
+            viewDetails.content[newItemID].previous = resolvePreviousRef(
+                store, idMap, item.previous, targetComponent.content, componentID, itemID, 'previous',
+            );
         }
 
         if (Array.isArray(item.arrow) && item.arrow.length > 0) {
             for (const arrow of viewDetails.content[newItemID].arrow)
                 if (arrow.previous) {
-                    arrow.previous = idMap[arrow.previous];
+                    arrow.previous = resolvePreviousRef(
+                        store, idMap, arrow.previous, targetComponent.content, componentID, itemID, 'arrow.previous',
+                    );
                 }
         } else if (item.arrow && item.arrow.previous) {
-            viewDetails.content[newItemID].arrow.previous = idMap[item.arrow.previous];
+            viewDetails.content[newItemID].arrow.previous = resolvePreviousRef(
+                store, idMap, item.arrow.previous, targetComponent.content, componentID, itemID, 'arrow.previous',
+            );
         }
 
         if (targetComponent.details && !item.details)
@@ -214,6 +220,30 @@ function buildComponent(store, components, componentID, viewDetails, viewName, d
             }
         }
     });
+}
+
+// Resolve a `previous` (or `arrow.previous`) reference against the current
+// buildComponent's idMap. Returns the rewritten id, or undefined when the
+// lookup misses — and warns with a message that distinguishes user-error modes:
+//   - Forward reference: raw id exists in this component's content but hasn't
+//     been processed yet (subcomponents must be ordered by graph appearance).
+//   - Out-of-scope reference: raw id is not in this component's content at all,
+//     so it either typos or reaches into a nested subcomponent's internals
+//     (the head-stitch is the only legitimate cross-scope link).
+function resolvePreviousRef(store, idMap, rawId, componentContent, componentID, itemID, field) {
+    const resolved = idMap[rawId];
+    if (resolved !== undefined) return resolved;
+
+    if (componentContent && Object.hasOwn(componentContent, rawId)) {
+        store.reporter.warn(
+            `Forward ${field} reference in component "${componentID}", item "${itemID}": "${rawId}" is declared later in this content block. Items must be ordered by graph appearance.`,
+        );
+    } else {
+        store.reporter.warn(
+            `Out-of-scope ${field} reference in component "${componentID}", item "${itemID}": "${rawId}" is not defined in this content block. previous may only reference earlier siblings or the implicit tail of a prior subcomponent.`,
+        );
+    }
+    return undefined;
 }
 
 function handleDetails(store, components, targetItem, viewName, defaults, parentComponentChain, swapModules) {
