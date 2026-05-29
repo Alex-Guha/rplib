@@ -1,0 +1,235 @@
+{
+    "testEverything": {
+        "settings": [
+            {
+                "label": "Hide Arrows",
+                "id": "hide-arrow",
+                "property": "hideArrows",
+                "noRedraw": false
+            },
+            {
+                "label": "Hide Trapezoids",
+                "id": "hide-trapezoids",
+                "property": "hideTrapezoids"
+            }
+        ],
+        "content": {
+            "everything": {
+                "y": -200,
+                "separation": 550,
+                "width": "2w",
+                "height": "h",
+                "description": "Every Possible Setting except arrow, which require a previous.\n\nShape color and stroke are theme based and not overridable, at least for now. They could easily be, though.",
+                "shape": "box",
+                "details": "testSegmentedArrows",
+                "opacity": 0.8,
+                "count": 3,
+                "xSpacing": "w/4",
+                "ySpacing": "-w/8",
+                "text": {
+                    "text": "$box_{everything}$",
+                    "position": "center",
+                    "xOffset": "-w/8",
+                    "yOffset": "-w/16",
+                    "description": "Info Override",
+                    "color": "#00ffff",
+                    "references": {
+                        "Reference Override": {}
+                    }
+                },
+                "references": {
+                    "Test Reference": {
+                        "authors": [
+                            "John Doe"
+                        ],
+                        "link": "https://arxiv.org/pdf/genericarxivlink",
+                        "description": "Some text that should show in the info box",
+                        "refType": "PDF"
+                    }
+                }
+            },
+            "everything_trapezoid_1": {
+                "position": "left",
+                "shape": "trapezoid",
+                "previous": "everything",
+                "hideTrapezoids": true,
+                "text": {
+                    "text": "Left",
+                    "position": "center",
+                    "color": "#00ffff"
+                },
+                "arrow": {
+                    "hideArrows": true,
+                    "text": [
+                        {
+                            "text": "Left Arrow"
+                        }
+                    ]
+                }
+            },
+            "everything_trapezoid_2": {
+                "flipped": true,
+                "shape": "trapezoid",
+                "previous": "everything",
+                "hideTrapezoids": true,
+                "text": {
+                    "text": "Right",
+                    "position": "center",
+                    "color": "#00ffff"
+                },
+                "arrow": {
+                    "hideArrows": true,
+                    "text": [
+                        {
+                            "text": "Right Arrow",
+                            "position": "bottom"
+                        }
+                    ]
+                }
+            },
+            "everything_triangle_1": {
+                "position": "above",
+                "width": "2w",
+                "shape": "triangle",
+                "previous": "everything",
+                "count": 3,
+                "text": {
+                    "text": "Above",
+                    "position": "center",
+                    "color": "#00ffff",
+                    "xOffset": "-w/4",
+                    "yOffset": "h/16"
+                },
+                "arrow": {
+                    "hideArrows": true,
+                    "text": [
+                        {
+                            "text": "Up Arrow",
+                            "position": "left"
+                        }
+                    ]
+                }
+            },
+            "everything_triangle_2": {
+                "position": "below",
+                "width": "2w",
+                "shape": "triangle",
+                "previous": "everything",
+                "count": 3,
+                "xSpacing": "-w/4",
+                "ySpacing": "-w/8",
+                "flipped": true,
+                "text": {
+                    "text": "Below",
+                    "position": "center",
+                    "color": "#00ffff",
+                    "xOffset": "w/4",
+                    "yOffset": "h/16"
+                },
+                "arrow": {
+                    "hideArrows": true,
+                    "text": [
+                        {
+                            "text": "Down Arrow",
+                            "position": "right"
+                        }
+                    ],
+                    "extraLength": "h/2 - w/2"
+                }
+            }
+        }
+    },
+    "testLatex": {
+        "settings": [
+            {
+                "label": "Hide Text",
+                "id": "hide-text",
+                "property": "hideText"
+            }
+        ],
+        "references": {
+            "Test 1": {
+                "authors": [
+                    "Testerson Testers"
+                ],
+                "link": "https://github.com",
+                "description": "This is another test reference",
+                "refType": "Github"
+            }
+        },
+        "content": {
+            "box": {
+                "position": "below",
+                "width": "2h",
+                "height": "2h",
+                "description": "Sample box 2 description",
+                "shape": "box",
+                "text": [
+                    {
+                        "text": "$Latex Box$",
+                        "position": "center"
+                    },
+                    {
+                        "text": "$Top$",
+                        "hideText": true
+                    },
+                    {
+                        "text": "$Bottom$",
+                        "position": "bottom",
+                        "hideText": true
+                    },
+                    {
+                        "text": "$Left$",
+                        "position": "left",
+                        "hideText": true
+                    },
+                    {
+                        "text": "$Right$",
+                        "position": "right",
+                        "hideText": true
+                    },
+                    {
+                        "text": "$Left Upper$",
+                        "position": "left-top",
+                        "hideText": true
+                    },
+                    {
+                        "text": "$Right Upper$",
+                        "position": "right-top",
+                        "hideText": true
+                    },
+                    {
+                        "text": "$Left Lower$",
+                        "position": "left-bottom",
+                        "hideText": true
+                    },
+                    {
+                        "text": "$Right Lower$",
+                        "position": "right-bottom",
+                        "hideText": true
+                    },
+                    {
+                        "text": "$Left Upper$",
+                        "position": "top-left",
+                        "hideText": true
+                    },
+                    {
+                        "text": "$Right Upper$",
+                        "position": "top-right",
+                        "hideText": true
+                    },
+                    {
+                        "text": "$Left Lower$",
+                        "position": "bottom-left",
+                        "hideText": true
+                    },
+                    {
+                        "text": "$Right Lower$",
+                        "position": "bottom-right",
+                        "hideText": true
+                    }
+                ]
+            }
+        }
+    }
+}

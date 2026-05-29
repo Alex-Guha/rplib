@@ -5,31 +5,22 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 follows [SemVer](https://semver.org/) starting from `1.0.0`. The `0.x` series
 makes no API-stability guarantees.
 
-## [0.1.0] - Initial pre-release
-
-### Changed (BREAKING for pre-1.0 consumers)
-
-- Package renamed from `rplib` to `@alexguha/rplib` (npm `rplib` name was
-  blocked as too similar to an existing package). Update imports to
-  `import ... from '@alexguha/rplib'` / `'@alexguha/rplib/parser'` /
-  `'@alexguha/rplib/mutate'`.
-- `RPCanvas` constructor now takes an options object:
-  `new RPCanvas({ svgDOM, defaults?, components?, eventListenerTargets?, elementToggleCallback?, resolveView? })`.
-  The previous 6-arg positional form has been removed.
-- Wildcard subpath exports (`@alexguha/rplib/parser/*`, `@alexguha/rplib/utils/*`) have been
-  removed. The public parser surface is now a single subpath:
-  `import { parseAbstractContent, loadAbstractDefinitions, ... } from '@alexguha/rplib/parser'`.
-  Everything else under `parser/` and all of `utils/` is internal.
-- `@alexguha/rplib/mutate.js` is now exposed as `@alexguha/rplib/mutate` (without the `.js` suffix).
-- The package entry was renamed from `canvasManager.js` to `index.js`.
+## [Unreleased]
 
 ### Added
 
-- Core canvas with hook system, adapter injection (`resolveView`, `Reporter`,
-  `Storage`), partial-redraw API, and the bundled DSL parser.
-- Type declarations: `npm run build:types` emits `.d.ts` files under `types/`
-  via `tsc --emitDeclarationOnly`. The `types` field and per-subpath `types`
-  conditions are wired through `package.json`.
-- `repository`, `homepage`, `bugs`, `keywords`, `engines` metadata.
-- `LICENSE` file on disk.
-- `prepublishOnly` script runs tests and emits types before publish.
+- `parseAbstractDefinitionFiles(paths)` — parallel-fetch + parse multiple `.txt`
+  abstract files and merge them into a single definitions map. Last-write-wins
+  on key collision.
+- `loadDataDir(dataDir, reporter?)` — runtime loader for the `data/` directory
+  convention. Reads `<dataDir>/manifest.json`, then fetches and aggregates
+  every listed abstract (`.txt`) and component (`.json` / `.js`).
+- `rplib-build-data` CLI: walks a `data/` directory at build/dev time and
+  writes `<dataDir>/manifest.json`. File and folder names inside `abstracts/`
+  and `components/` are arbitrary; the manifest is regenerated on every
+  dev/build, never hand-edited.
+- Improved component dimension entry, allowing for "2h + 2w" style specification
+
+## [0.1.0] - Initial pre-release
+
+- Everything

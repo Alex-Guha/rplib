@@ -5,20 +5,28 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 follows [SemVer](https://semver.org/) starting from `1.0.0`. The `0.x` series
 makes no API-stability guarantees.
 
+## [Unreleased]
+
+### Changed (BREAKING)
+
+- `createEditor({ components, dataSource })` → `createEditor({ dataDir })`. The
+  editor now reads a `data/` directory laid out as `abstracts/*.txt` and
+  `components/**/*.{json,js}`; file and folder names are arbitrary. Run
+  `npx rplib-build-data <dataDir>` (shipped by `@alexguha/rplib`) before
+  serving to (re)generate `<dataDir>/manifest.json`. Bundler users who
+  aggregate their own way can pass pre-aggregated input via
+  `createEditor({ data: { abstractDefinitions, components } })` instead.
+- Mirrored dimension entry from rplib-core in the component editor
+
+### Changed
+
+- Updated the DSL following the rplib-core dimension entry improvement
+- Following the above, allowed for component JSON definitions while maintaining parity for js definitions
+
+### Fixed
+
+- Docs page not appearing
+
 ## [0.1.0] - Initial pre-release
 
-### Changed (BREAKING for pre-1.0 consumers)
-
-- Package renamed from `rplib-editor` to `@alexguha/rplib-editor`. Peer
-  dependency renamed from `rplib` to `@alexguha/rplib`. Update imports to
-  `import { createEditor } from '@alexguha/rplib-editor'`.
-
-### Added
-
-- Generic diagram-editor UI built on top of `@alexguha/rplib`: canvas + sidebar +
-  navigation + info overlay.
-- CodeMirror-based abstract editor with autocomplete, lint, and search.
-- Component edit mode with undo/redo integration.
-- DSL documentation page (`docs.html`) and `DSL.md`.
-- `repository`, `homepage`, `bugs`, `keywords`, `engines` metadata; `LICENSE`
-  on disk.
+- Everything

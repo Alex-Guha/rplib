@@ -1,6 +1,6 @@
 # @alexguha/rplib-editor
 
-A generic diagram-editor UI built on top of [`@alexguha/rplib`](../core/). You supply components (visual building blocks) and a data source (rplib-DSL abstract definitions — see [DSL.md](./DSL.md)); the editor handles canvas wiring, sidebar, navigation, theme switching, and settings persistence to `localStorage`.
+A generic diagram-editor UI built on top of [`@alexguha/rplib`](../core/). You supply a `data/` directory containing components (visual building blocks) and rplib-DSL abstract definitions (see [DSL.md](./DSL.md)); the editor handles canvas wiring, sidebar, navigation, theme switching, and settings persistence to `localStorage`.
 
 The editor knows nothing about your domain. Labels, theme palettes, and storage are all overridable.
 
@@ -14,13 +14,39 @@ npm install @alexguha/rplib @alexguha/rplib-editor d3 katex
 
 ## Quickstart
 
+Lay out your data as:
+
+```
+data/
+  abstracts/   # any number of *.txt files (rplib-DSL), any names
+  components/  # any number of *.json / *.js files, nested freely
+```
+
+Before serving the app, generate the manifest the runtime fetches:
+
+```sh
+npx rplib-build-data ./data
+```
+
+The recommended wiring is an npm script:
+
+```json
+{
+  "scripts": {
+    "build:data": "rplib-build-data ./data",
+    "prestart": "npm run build:data",
+    "predev": "npm run build:data"
+  }
+}
+```
+
+Then boot:
+
 ```js
 import { createEditor } from '@alexguha/rplib-editor';
-import * as components from './my-components.js';
 
 const manager = await createEditor({
-  components,
-  dataSource: './my-abstracts.txt',         // path or pre-parsed definitions object
+  dataDir: './data',
   labels: {
     abstract: { singular: 'Architecture', plural: 'Architectures' },
   },
@@ -28,6 +54,8 @@ const manager = await createEditor({
 
 manager.restoreView('default_view');         // fallback if no saved view in localStorage
 ```
+
+Bundler users (Vite's `import.meta.glob`, webpack `require.context`) can skip the CLI and pass pre-aggregated input instead — see [`data` escape hatch](#pre-aggregated-data-escape-hatch) below.
 
 The consumer also needs to:
 
@@ -54,15 +82,49 @@ See [Neural-Atlas](https://github.com/Alex-Guha/Neural-Atlas) for a complete con
 
 ## `createEditor(config)`
 
+Exactly one of `dataDir` or `data` is required.
+
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `components` | object | yes | Component definitions consumed by rplib (the visual building blocks your DSL references). |
-| `dataSource` | string \| object | yes | Path to an abstract-definitions text file, **or** a pre-parsed definitions object. |
+| `dataDir` | string | one of | URL/path to a `data/` directory containing `abstracts/`, `components/`, and a `manifest.json` produced by `rplib-build-data`. Resolved relative to the page. |
+| `data` | object | one of | Pre-aggregated `{ abstractDefinitions, components }`. Escape hatch for bundler users who aggregate their own way. |
 | `labels` | object | no | Terminology overrides, e.g. `{ abstract: { singular: 'Architecture', plural: 'Architectures' } }`. Affects sidebar copy. |
 | `themes` | object | no | Extra named theme palettes merged on top of the editor's built-ins. Host-supplied themes win on name collision. |
 | `repoUrl` | string | no | URL the lower-left GitHub button links to. Omitted → button is rendered but inert. Reassign at runtime via `manager.setRepoUrl(url)`. |
+| `storage` | object | no | `{ getItem, setItem, removeItem }` adapter. Defaults to `localStorage` when available. |
+| `reporter` | object | no | `{ error, warn }` diagnostics sink. Defaults to `console`. |
 
 Returns a promise resolving to the `AppManager` instance.
+
+### Pre-aggregated `data` escape hatch
+
+```js
+import * as componentsA from './data/components/foo.js';
+import componentsB from './data/components/bar.json' with { type: 'json' };
+import { parseAbstractContent } from '@alexguha/rplib/parser';
+import abstractsRaw from './data/abstracts/main.txt?raw';
+
+const manager = await createEditor({
+  data: {
+    abstractDefinitions: parseAbstractContent(abstractsRaw),
+    components: { ...componentsA, ...componentsB },
+  },
+});
+```
+
+### Data directory layout
+
+`rplib-build-data <dataDir>` walks `<dataDir>/abstracts/**.txt` and
+`<dataDir>/components/**.{json,js}` and writes `<dataDir>/manifest.json`. File
+and folder names inside `abstracts/` and `components/` are arbitrary — the
+runtime aggregates everything listed in the manifest. The manifest is meant to
+be regenerated on every dev/build (gitignore it). On duplicate component keys
+across files, later files override earlier ones and a warning is emitted via
+`reporter.warn`.
+
+`.js` component files must be ESM (`export const name = …` or a default
+export of `{ [name]: … }`) and served with a `text/javascript`/`application/javascript`
+content type — they're loaded via dynamic `import()`.
 
 ### `AppManager`
 
@@ -81,7 +143,7 @@ For lower-level needs (programmatic edits, custom navigation), reach through `ma
 The editor reads from and writes to `localStorage` for:
 
 - The current root view name (so reloading restores the user's last position)
-- User-saved abstract definitions on top of the bundled `dataSource`
+- User-saved abstract definitions on top of the bundled `dataDir`
 - Settings (theme choice, rendering delay, etc.)
 
 If you need a non-`localStorage` storage backend, use rplib's storage adapter API directly via `manager.canvas` — but at that point you may want to bypass `createEditor` and wire your own UI.

@@ -14,13 +14,27 @@ npm install @alexguha/rplib @alexguha/rplib-viewer d3 katex
 
 ## Quickstart
 
+Lay out your data as:
+
+```
+data/
+  abstracts/   # any number of *.txt files (rplib-DSL), any names
+  components/  # any number of *.json / *.js files, nested freely
+```
+
+Generate the runtime manifest before serving:
+
+```sh
+npx rplib-build-data ./data
+```
+
+Then boot:
+
 ```js
 import { createViewer } from '@alexguha/rplib-viewer';
-import * as components from './my-components.js';
 
 const manager = await createViewer({
-  components,
-  dataSource: './my-abstracts.txt',         // path or pre-parsed definitions object
+  dataDir: './data',
   labels: {
     abstract: { singular: 'Architecture', plural: 'Architectures' },
   },
@@ -28,6 +42,8 @@ const manager = await createViewer({
 
 manager.restoreView('default_view');         // fallback if no saved view in localStorage
 ```
+
+See [`@alexguha/rplib-editor` README](../editor/README.md#data-directory-layout) for the full data-directory contract (it's identical between the two packages). Bundler users can pass pre-aggregated `data: { abstractDefinitions, components }` instead of `dataDir`.
 
 The consumer also needs to:
 
@@ -54,8 +70,8 @@ The consumer also needs to:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `components` | object | yes | Component definitions consumed by rplib (the visual building blocks your DSL references). |
-| `dataSource` | string \| object | yes | Path to an abstract-definitions text file, **or** a pre-parsed definitions object. |
+| `dataDir` | string | one of | URL/path to a `data/` directory containing `abstracts/`, `components/`, and a `manifest.json` produced by `rplib-build-data`. |
+| `data` | object | one of | Pre-aggregated `{ abstractDefinitions, components }`. Escape hatch for bundler users. |
 | `labels` | object | no | Terminology overrides, e.g. `{ abstract: { singular: 'Architecture', plural: 'Architectures' } }`. Used in the views menu. |
 | `themes` | object | no | Extra named theme palettes merged on top of the built-ins (`default`, `dark`, `light`). Host-supplied themes win on name collisions. |
 | `repoUrl` | string | no | URL the GitHub button in the lower-left links to. Omit to leave the button inert. Reassignable at runtime via `manager.setRepoUrl(url)`. |

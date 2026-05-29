@@ -5,6 +5,9 @@
   "type": "module",
   "main": "index.js",
   "types": "types/index.d.ts",
+  "bin": {
+    "rplib-build-data": "./bin/build-data-manifest.js"
+  },
   "scripts": {
     "test": "node --test",
     "build:types": "tsc",
@@ -44,6 +47,7 @@
     "mutate.js",
     "renderView.js",
     "viewStore.js",
+    "bin",
     "parser",
     "utils",
     "types",

@@ -4,7 +4,10 @@
 export {
     parseAbstractContent,
     parseAbstractDefinitionFile,
+    parseAbstractDefinitionFiles,
 } from './parseAbstractFile.js';
+
+export { loadDataDir } from './loadDataDir.js';
 
 export { default as serializeAbstractDefinition } from './serializeAbstractFormat.js';
 

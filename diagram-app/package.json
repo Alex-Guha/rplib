@@ -5,6 +5,8 @@
   "description": "Lightweight in-repo test app for rplib + rplib-editor. Hosts the test components and architectures used to exercise the library. Intended to be browser-testable standalone and deployable to GitHub Pages.",
   "main": "main.js",
   "scripts": {
+    "build:data": "rplib-build-data ./data",
+    "prestart": "npm run build:data",
     "start": "http-server . -c-1"
   },
   "dependencies": {

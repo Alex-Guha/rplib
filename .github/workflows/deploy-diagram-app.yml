@@ -28,6 +28,10 @@ jobs:
         working-directory: diagram-app
         run: npm install --install-links
 
+      - name: Build data manifest
+        working-directory: diagram-app
+        run: npm run build:data
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3

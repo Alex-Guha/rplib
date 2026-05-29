@@ -6,6 +6,3 @@ testswap:
     testText:
         swappable: testSwappable
     testEverything
-
-testarrows:
-    testSegmentedArrows

@@ -24,6 +24,17 @@ export function parseAbstractDefinitionFile(filePath) {
 }
 
 /**
+ * Fetch and parse multiple `.txt` abstract-definition files in parallel, then
+ * merge them into a single definitions map. Last-write-wins on key collision.
+ * @param {string[]} filePaths
+ * @returns {Promise<Object>} Merged map of `{ [definitionName]: definitionStructure }`.
+ */
+export async function parseAbstractDefinitionFiles(filePaths) {
+    const parsed = await Promise.all(filePaths.map(parseAbstractDefinitionFile));
+    return Object.assign({}, ...parsed);
+}
+
+/**
  * Parse abstract-definition source text into the intermediate JSON format.
  * @param {string} content
  * @returns {Object} `{ [definitionName]: definitionStructure }`.

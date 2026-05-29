@@ -1,6 +1,6 @@
 # rplib-editor DSL reference
 
-This document describes the abstract/component DSL consumed by `rplib-editor`'s parser. Consumers supply `components` (JS or JSON objects) and a `dataSource` of abstract definitions (text in the format below); the editor stitches them into renderable views.
+This document describes the abstract/component DSL consumed by `rplib-editor`'s parser. Consumers supply a `dataDir` containing `components/` (JS or JSON objects) and `abstracts/` (text in the format below); the editor stitches them into renderable views.
 
 For a runnable example using this DSL, see [`../diagram-app/`](../diagram-app/).
 
