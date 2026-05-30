@@ -1,38 +1,36 @@
-### Core Features
-#### Editing and Exporting
+### Editing
 - Consider what the references box could be used for. Maybe that becomes the text entry field for the component editing mode, where a user can select "Edit info" and type in this.
 - When users want to move components inside components, auto create an empty point before the componet with no separation and move that, implicitly repositioning the component without requiring edits to it
 - click-to-set-previous
 - `swapModules`-style content overrides on imported component references (and the per-item `class` field that enables them)
 - full UI for multi-segment arrows (`arrow.segments[]` shown read-only).
 
-### Genericize the reference box
-
-### QoL
-#### Make double-clickable items more noticeable, and add a notice at the top or bottom of the info box to tell the user the item is clickable
-- Potentially use the hover color to make it clearer
-#### Make component settings view specific so that setting ids can be reused in different views
-#### Element hover issue
-- Force the element hover styling when the element's text is clicked as well
-- Will probably be more tricky to implement than it has any right to be
-
----
-
-## Low Priority
-
-### Translation support
-
-### Comparison
-Add the ability to compare two abstracts visually (highlighting the differences between generations)
-
-### Drag and drop editing
+#### Drag and drop editing
 - make it possible to click and drag an element, and have all subsequent elements in the graph move with it
 - if also holding shift, only move the selected element
 
 
-### Additional QoL
+### Genericize the reference box in rplib-core
+- Consumers might not want or need "references"
 
-#### Arrows
+### Comparison
+Add the ability to compare two abstracts visually (highlighting the differences between generations)
+
+### Translation support
+
+### QoL
+- Make double-clickable items more noticeable, and add a notice at the top or bottom of the info box to tell the user the item is clickable
+  - Potentially use the hover color to make it clearer
+- Make component settings view specific so that setting ids can be reused in different views
+- Element hover issue
+  - Force the element hover styling when the element's text is clicked as well
+  - Will probably be more tricky to implement than it has any right to be
+
+---
+
+## Future
+
+### Arrows
 - rewrite to allow for multiple previous elements and thus multiple arrows
 - Enforce a min arrow size based on text bbox, and propogate to item arrangement
   - Draw text, get bbox, delete text, adjust arrow end position, redraw text
@@ -40,11 +38,11 @@ Add the ability to compare two abstracts visually (highlighting the differences 
 - Add euclidean arrow option?
 - Maybe: For the residual arrows, potentially record the max y in main and go from previousItem.y to that plus a little bit
 
-#### Item Rendering
+### Item Rendering
 - Make a toggle to show the graph structure by drawing lines between components instead of rendering them, and tacking on the component name
 - Maybe: The current method of storing positions can't handle referencing an item that hasn't been drawn yet, which prevents arrow cycles. This might be fine though, since it also prevents circular dependencies
 
-#### Text
+### Text
 - Auto split text into multiple lines based on textObject width, if it exists
 
 ### Efficiency and Optimization

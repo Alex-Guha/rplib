@@ -13,6 +13,8 @@
     --arrow-color: #444;
 
     --link-color: #00ffff;
+    --info-callout-color: #ffd24a;
+    --component-edit-target-color: #4d8cff;
 
     --button-fill-color: #3a3a3a;
     --button-border-color: #555;
@@ -88,14 +90,14 @@ body {
 
 .info-overlay-callouts .info-callout-arrow {
     fill: none;
-    stroke: #ffd24a;
+    stroke: var(--info-callout-color);
     stroke-width: 1.5;
     stroke-linecap: round;
     opacity: 0.9;
 }
 
 .info-callout-label {
-    color: #ffd24a;
+    color: var(--info-callout-color);
     font-size: 12.5px;
     line-height: 1.3;
     text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
@@ -106,15 +108,25 @@ body {
     align-items: center;
 }
 
-.info-callout-label.align-right { text-align: right; justify-content: flex-end; }
-.info-callout-label.align-left { text-align: left; justify-content: flex-start; }
-.info-callout-label.align-center { text-align: center; justify-content: center; }
-.info-callout-label.align-center { text-align: center; justify-content: center; }
+.info-callout-label.align-right {
+    text-align: right;
+    justify-content: flex-end;
+}
+
+.info-callout-label.align-left {
+    text-align: left;
+    justify-content: flex-start;
+}
+
+.info-callout-label.align-center {
+    text-align: center;
+    justify-content: center;
+}
 
 .info-overlay-panel {
     background-color: rgba(42, 42, 42, 0.92);
     color: var(--text-default-color);
-    border: 1px solid #444;
+    border: 1px solid var(--arrow-color);
     border-radius: 10px;
     width: min(720px, 78%);
     max-height: 78%;
@@ -159,7 +171,7 @@ body {
     display: flex;
     gap: 4px;
     padding: 0 20px;
-    border-bottom: 1px solid #3a3a3a;
+    border-bottom: 1px solid var(--shape-fill-color);
     flex-shrink: 0;
 }
 
@@ -191,9 +203,18 @@ body {
     flex-grow: 1;
 }
 
-.info-tab-content p { margin: 0 0 10px; }
-.info-tab-content ul { margin: 0 0 10px; padding-left: 20px; }
-.info-tab-content li { margin-bottom: 6px; }
+.info-tab-content p {
+    margin: 0 0 10px;
+}
+
+.info-tab-content ul {
+    margin: 0 0 10px;
+    padding-left: 20px;
+}
+
+.info-tab-content li {
+    margin-bottom: 6px;
+}
 
 .info-tab-content code {
     background-color: rgba(255, 255, 255, 0.07);
@@ -216,18 +237,30 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 10px 20px 14px;
-    border-top: 1px solid #3a3a3a;
+    border-top: 1px solid var(--shape-fill-color);
     flex-shrink: 0;
     font-size: 0.85em;
 }
 
-.info-hint { opacity: 0.6; }
+.info-hint {
+    opacity: 0.6;
+}
+
+.info-details-hint {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--shape-fill-color);
+    font-size: 0.85em;
+    opacity: 0.75;
+}
 
 .info-docs-link {
     color: var(--link-color);
     text-decoration: none;
 
-    &:hover { text-decoration: underline; }
+    &:hover {
+        text-decoration: underline;
+    }
 }
 
 #info {
@@ -586,10 +619,10 @@ textarea {
    unmistakable against the dim editor canvas. */
 #content rect.component-edit-target,
 #content polygon.component-edit-target {
-    fill: #4d8cff !important;
-    stroke: #ffd24a !important;
+    fill: var(--component-edit-target-color) !important;
+    stroke: var(--info-callout-color) !important;
     stroke-width: 3px !important;
-    filter: drop-shadow(0 0 6px #ffd24a);
+    filter: drop-shadow(0 0 6px var(--info-callout-color));
 }
 
 /* Group highlight for all items belonging to the same imported component —
@@ -597,8 +630,8 @@ textarea {
    is one import," not as "this individual item is selected." */
 #content rect.component-edit-target-group,
 #content polygon.component-edit-target-group {
-    fill: #4d8cff !important;
-    stroke: #ffd24a !important;
+    fill: var(--component-edit-target-color) !important;
+    stroke: var(--info-callout-color) !important;
     stroke-width: 2px !important;
     stroke-dasharray: 4 3 !important;
     opacity: 0.75;

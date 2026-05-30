@@ -25,9 +25,11 @@ export function resetSidebar(manager) {
 // Updates the sidebar with information from the hovered element
 export function updateSidebar(event, manager) {
     const target = event.currentTarget;
+    const id = target.getAttribute('id');
 
-    updateReferences(manager, manager.canvas.findHierarchicalElementProperty(target.getAttribute('id'), 'references') || null);
-    updateInfo(manager, manager.canvas.findHierarchicalElementProperty(target.getAttribute('id'), 'description') || "No additional information.");
+    updateReferences(manager, manager.canvas.findHierarchicalElementProperty(id, 'references') || null);
+    const hasDetails = !!manager.canvas.findHierarchicalElementProperty(id, 'details');
+    updateInfo(manager, manager.canvas.findHierarchicalElementProperty(id, 'description') || "No additional information.", hasDetails);
 }
 
 // Handles hovering over items in the reference box
@@ -134,7 +136,7 @@ export function updateReferences(manager, elementReferences = null) {
 
 // Creates the info box. `manager` is required to resolve {{property}}
 // placeholders against the current root abstract's properties.
-export function updateInfo(manager, content) {
+export function updateInfo(manager, content, hasDetails = false) {
     const element = document.getElementById('info');
     element.innerHTML = "";
 
@@ -143,6 +145,13 @@ export function updateInfo(manager, content) {
     content = replacePlaceholders(content, rootProps);
 
     renderInfoContent(content, element);
+
+    if (hasDetails) {
+        const footer = document.createElement('div');
+        footer.className = 'info-details-hint';
+        footer.textContent = 'Double-click to open';
+        element.appendChild(footer);
+    }
 }
 
 function renderInfoContent(content, element) {

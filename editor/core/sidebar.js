@@ -46,13 +46,15 @@ export function resetSidebar(manager) {
 // Updates the sidebar with information from the hovered element
 export function updateSidebar(event, manager) {
     const target = event.currentTarget;
+    const id = target.getAttribute('id');
 
     // If the element has references, change the references box
-    updateReferences(manager, manager.canvas.findHierarchicalElementProperty(target.getAttribute('id'), 'references') || null);
+    updateReferences(manager, manager.canvas.findHierarchicalElementProperty(id, 'references') || null);
 
     // For any updateSidebar call aside from the reference list items (i.e. on hovering over elements in the svg)
     // Populate the info box with data from the element
-    updateInfo(manager, manager.canvas.findHierarchicalElementProperty(target.getAttribute('id'), 'description') || "No additional information.");
+    const hasDetails = !!manager.canvas.findHierarchicalElementProperty(id, 'details');
+    updateInfo(manager, manager.canvas.findHierarchicalElementProperty(id, 'description') || "No additional information.", hasDetails);
 }
 
 // Handles hovering over items in the reference box
@@ -170,7 +172,7 @@ export function updateReferences(manager, elementReferences = null) {
 
 // Creates the info box. `manager` is required to resolve {{property}}
 // placeholders against the current root abstract's properties.
-export function updateInfo(manager, content) {
+export function updateInfo(manager, content, hasDetails = false) {
     const element = document.getElementById('info');
     element.innerHTML = "";
 
@@ -180,6 +182,13 @@ export function updateInfo(manager, content) {
     content = replacePlaceholders(content, rootProps);
 
     renderInfoContent(content, element);
+
+    if (hasDetails) {
+        const footer = document.createElement('div');
+        footer.className = 'info-details-hint';
+        footer.textContent = 'Double-click to open';
+        element.appendChild(footer);
+    }
 }
 
 // Render formatted content into a target element. Used by both updateInfo
