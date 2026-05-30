@@ -26,7 +26,9 @@ makes no API-stability guarantees.
 
 ### Fixed
 
+- Stylesheet hardcoded colors converted to using variables
 - Docs page not appearing
+- Clicking center-positioned text over a shape now pins the shape's `.force-hover` state, matching the behavior of clicking the shape directly. Text that owns its own `description` still pins only itself.
 
 ## [0.1.0] - Initial pre-release
 

@@ -7,7 +7,7 @@ import attachListeners from './attachListeners.js';
  * The second is relative to the side of the item. 'center' is default.
  * Example: 'top-left', 'bottom-right', 'center'.
  */
-export default function drawText(self, textObject, item, itemLayout, callback, id) {
+export default function drawText(self, textObject, item, itemLayout, callback, id, pinTargetId) {
 
     // Don't render the text if it's been toggled off. It is up to the user how this toggle should be checked.
     if (callback && callback(textObject)) return;
@@ -29,6 +29,10 @@ export default function drawText(self, textObject, item, itemLayout, callback, i
     const renderSource = isLatex ? stripDelimiters(resolved) : resolved;
     const label = isLatex ? createLatexLabel(renderSource, textObject) : createTextLabel(renderSource, textObject);
     label.setAttribute('id', id);
+
+    if (pinTargetId && !Object.hasOwn(textObject, 'description')) {
+        label.setAttribute('data-pin-shape-id', pinTargetId);
+    }
 
     // Set the base position of the text, before relative positioning
     const textObjectX = itemLayout.x + (itemLayout.xSpacing ? itemLayout.xSpacing * ((item.count ?? 1) - 1) / 2 : 0) + (textObject.xOffset ?? 0);

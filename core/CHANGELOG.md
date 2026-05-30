@@ -20,6 +20,7 @@ makes no API-stability guarantees.
   and `components/` are arbitrary; the manifest is regenerated on every
   dev/build, never hand-edited.
 - Improved component dimension entry, allowing for "2h + 2w" style specification
+- Text elements now carry a `data-pin-shape-id` attribute pointing at their owning shape when the text inherits (rather than owns) its `description`, so viewer/editor click handlers can pin the underlying shape's `.force-hover` state on text clicks. `drawText` takes a new trailing `pinTargetId` argument.
 
 ### Changed
 

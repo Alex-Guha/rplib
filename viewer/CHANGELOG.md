@@ -15,6 +15,11 @@ makes no API-stability guarantees.
   `npx rplib-build-data <dataDir>` before serving. Bundler users can pass
   `createViewer({ data: { abstractDefinitions, components } })` instead.
 
+### Fixed
+
+- Stylesheet hardcoded colors converted to using variables
+- Clicking center-positioned text over a shape now pins the shape's `.force-hover` state, matching the behavior of clicking the shape directly. Text that owns its own `description` still pins only itself.
+
 ## [0.1.0] - Initial pre-release
 
 ### Changed (BREAKING for pre-1.0 consumers)

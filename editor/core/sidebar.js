@@ -121,8 +121,15 @@ export function attachElementEventListeners(element, manager) {
             }
             setSidebarState(manager, 'element');
             updateSidebar(event, manager);
-            if (element.node().tagName === 'rect' || element.node().tagName === 'polygon') {
+            const node = element.node();
+            if (node.tagName === 'rect' || node.tagName === 'polygon') {
                 element.classed('force-hover', true);
+            } else {
+                const pinId = node.getAttribute('data-pin-shape-id');
+                if (pinId) {
+                    const shape = document.getElementById(pinId);
+                    if (shape) shape.classList.add('force-hover');
+                }
             }
         })
         .on('mouseout', () => {

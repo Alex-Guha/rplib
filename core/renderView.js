@@ -89,10 +89,10 @@ export default function renderElements(self, elementToggleCallback, { onlyIds } 
 
         if (Array.isArray(item.text) && item.text.length > 0) {
             item.text.forEach((text, i) => {
-                self.drawText(text, item, layout, elementToggleCallback, `${id}.text_${i}`);
+                self.drawText(text, item, layout, elementToggleCallback, `${id}.text_${i}`, item.shape ? id : null);
             });
         } else if (item.text) {
-            self.drawText(item.text, item, layout, elementToggleCallback, `${id}.text`);
+            self.drawText(item.text, item, layout, elementToggleCallback, `${id}.text`, item.shape ? id : null);
         }
     };
 

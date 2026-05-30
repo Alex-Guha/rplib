@@ -128,10 +128,10 @@ function drawSegment(self, segment, layout, noHead, arrowGroup, segId, callback)
     // Draw text if it exists. The segment's layout doubles as the "itemLayout" for its text.
     if (Array.isArray(segment.text) && segment.text.length > 0) {
         segment.text.forEach((text, i) => {
-            self.drawText(text, segment, layout, callback, `${segId}.text_${i}`);
+            self.drawText(text, segment, layout, callback, `${segId}.text_${i}`, null);
         });
     } else if (segment.text) {
-        self.drawText(segment.text, segment, layout, callback, `${segId}.text`);
+        self.drawText(segment.text, segment, layout, callback, `${segId}.text`, null);
     }
 }
 

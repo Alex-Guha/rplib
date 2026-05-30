@@ -246,7 +246,7 @@ export default class RPCanvas {
     }
 
 
-    drawText = (textObject, item, itemLayout, callback, id) => drawText(this, textObject, item, itemLayout, callback, id);
+    drawText = (textObject, item, itemLayout, callback, id, pinTargetId) => drawText(this, textObject, item, itemLayout, callback, id, pinTargetId);
     drawSubcomponent = (item, layout, id) => drawSubcomponent(this, item, layout, id);
     drawConnection = (arrow, previousItem, prevLayout, item, itemLayout, callback, id) =>
         drawConnection(this, arrow, previousItem, prevLayout, item, itemLayout, callback, id);

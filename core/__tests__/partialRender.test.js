@@ -32,7 +32,7 @@ function makeStubCanvas(viewName, content) {
         drawSubcomponent: (item, layout, id) => drawn.push({ kind: 'shape', id }),
         drawConnection: (arrow, prevItem, prevLayout, item, layout, cb, id) =>
             drawn.push({ kind: 'arrow', id }),
-        drawText: (textObj, item, layout, cb, id) => drawn.push({ kind: 'text', id }),
+        drawText: (textObj, item, layout, cb, id, pinTargetId) => drawn.push({ kind: 'text', id }),
     };
     return { self, drawn, removed };
 }

@@ -19,12 +19,7 @@ Add the ability to compare two abstracts visually (highlighting the differences 
 ### Translation support
 
 ### QoL
-- Make double-clickable items more noticeable, and add a notice at the top or bottom of the info box to tell the user the item is clickable
-  - Potentially use the hover color to make it clearer
 - Make component settings view specific so that setting ids can be reused in different views
-- Element hover issue
-  - Force the element hover styling when the element's text is clicked as well
-  - Will probably be more tricky to implement than it has any right to be
 
 ---
 
