@@ -5,7 +5,7 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 follows [SemVer](https://semver.org/) starting from `1.0.0`. The `0.x` series
 makes no API-stability guarantees.
 
-## [Unreleased]
+## [0.2.0]
 
 ### Changed (BREAKING)
 

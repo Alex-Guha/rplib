@@ -1,6 +1,6 @@
 {
   "name": "@alexguha/rplib",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Relational-positioning diagram library: anchor-based DSL with recursive composition and in-place component swap.",
   "type": "module",
   "main": "index.js",
