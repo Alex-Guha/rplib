@@ -3,7 +3,6 @@
 - When users want to move components inside components, auto create an empty point before the componet with no separation and move that, implicitly repositioning the component without requiring edits to it
 - click-to-set-previous
 - `swapModules`-style content overrides on imported component references (and the per-item `class` field that enables them)
-- full UI for multi-segment arrows (`arrow.segments[]` shown read-only).
 
 #### Drag and drop editing
 - make it possible to click and drag an element, and have all subsequent elements in the graph move with it

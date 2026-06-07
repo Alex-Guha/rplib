@@ -821,6 +821,34 @@ textarea {
     padding: 8px;
 }
 
+.component-editor .ce-notes {
+    border-left: none;
+    padding-left: 0;
+}
+
+.component-editor .ce-notes-toggle {
+    text-align: left;
+    font-size: 0.85em;
+    opacity: 0.75;
+    background: transparent;
+    border: 1px dashed var(--shape-fill-color);
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.component-editor .ce-notes-toggle:hover {
+    opacity: 1;
+}
+
+.component-editor .ce-notes-body {
+    border-left: 2px solid var(--shape-fill-color);
+    padding-left: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
 .component-editor .ce-badge {
     display: inline-block;
     padding: 4px 8px;

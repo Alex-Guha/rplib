@@ -44,8 +44,18 @@ export function resetAdvancedMode() {
     advancedMode = false;
 }
 
+// Tracks which collapsible notes editors are open, by caller-supplied key.
+// Persists across re-renders so editing inside the panel doesn't snap it shut.
+const expandedNotes = new Set();
+
 export function renderInfoPanel(manager) {
     const info = document.getElementById('info');
+    // Preserve scroll position across full re-renders. Both #info and
+    // .component-editor are independently scrollable (styles.css:266, :641),
+    // so capture and restore both — otherwise every edit snaps back to top.
+    const prevEditor = info.querySelector('.component-editor');
+    const prevEditorScroll = prevEditor ? prevEditor.scrollTop : 0;
+    const prevInfoScroll = info.scrollTop;
     info.innerHTML = '';
 
     const container = document.createElement('div');
@@ -65,6 +75,9 @@ export function renderInfoPanel(manager) {
     // Export + Advanced toggle sit outside the scrollable form container so
     // they stay pinned to the bottom of #info.
     info.appendChild(renderBottomButtons(manager));
+
+    container.scrollTop = prevEditorScroll;
+    info.scrollTop = prevInfoScroll;
 }
 
 function renderItemIdRow(manager, def) {
@@ -191,15 +204,10 @@ function renderComponentLevelForm(manager) {
     const def = manager.canvas.components[componentEditState.name] || {};
 
     wrap.appendChild(renderNameRow(manager));
-    wrap.appendChild(fieldRow('description', 'textarea', def.description ?? '', (val) => {
-        patchComponentLevel(manager, { description: val === '' ? null : val });
-    }));
-    wrap.appendChild(selectRow('details', detailsOptions(manager, def.details), def.details ?? '', (val) => {
-        patchComponentLevel(manager, { details: val === '' ? null : val });
-    }, 'none'));
-    wrap.appendChild(renderReferencesEditor(
-        def.references || [],
-        (next) => patchComponentLevel(manager, { references: next })
+    wrap.appendChild(renderNotesEditor(manager, '__component__', def,
+        (val) => patchComponentLevel(manager, { description: val === '' ? null : val }),
+        (val) => patchComponentLevel(manager, { details: val === '' ? null : val }),
+        (next) => patchComponentLevel(manager, { references: next }),
     ));
 
     // Passthrough JSON editor for unknown top-level keys
@@ -308,20 +316,14 @@ function renderItemLevelForm(manager) {
 
     // -- content --
     wrap.appendChild(sectionSeparator('content'));
-    wrap.appendChild(fieldRow('description', 'textarea', item.description ?? '', (val) => {
-        patchItem(manager, { description: val === '' ? null : val });
-    }));
-    if (advancedMode) {
-        wrap.appendChild(selectRow('details', detailsOptions(manager, item.details), item.details ?? '', (val) => {
-            patchItem(manager, { details: val === '' ? null : val });
-        }, 'none'));
-    }
-    wrap.appendChild(renderReferencesEditor(
-        item.references || [],
-        (next) => patchItem(manager, { references: next })
+    wrap.appendChild(renderNotesEditor(manager, `item:${componentEditState.target}`, item,
+        (val) => patchItem(manager, { description: val === '' ? null : val }),
+        (val) => patchItem(manager, { details: val === '' ? null : val }),
+        (next) => patchItem(manager, { references: next }),
     ));
-    wrap.appendChild(renderTextEntries(manager, item.text, (next) => patchItem(manager, { text: next })));
-    wrap.appendChild(renderArrowEntries(manager, item));
+    const itemKey = `item:${componentEditState.target}`;
+    wrap.appendChild(renderTextEntries(manager, itemKey, item.text, (next) => patchItem(manager, { text: next })));
+    wrap.appendChild(renderArrowEntries(manager, itemKey, item));
 
     return wrap;
 }
@@ -330,7 +332,7 @@ function renderItemLevelForm(manager) {
 // onChange. Same primitive is used for both item.text and arrow[i].text — the
 // rplib data model treats them identically (arrows.js:129 iterates segment.text
 // the same way text on shapes is handled).
-function renderTextEntries(manager, textValue, onChange) {
+function renderTextEntries(manager, parentKey, textValue, onChange) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-subgroup';
     const heading = document.createElement('div');
@@ -341,7 +343,7 @@ function renderTextEntries(manager, textValue, onChange) {
     const entries = normalizeArray(textValue);
     // Empty payload commits as null so consumers don't end up with `text: []`.
     const commit = (next) => onChange(next && next.length ? next : null);
-    entries.forEach((entry, idx) => wrap.appendChild(renderTextEntry(manager, entry, idx, entries, commit)));
+    entries.forEach((entry, idx) => wrap.appendChild(renderTextEntry(manager, `${parentKey}/text[${idx}]`, entry, idx, entries, commit)));
 
     const add = document.createElement('button');
     add.textContent = '+ add text';
@@ -353,7 +355,7 @@ function renderTextEntries(manager, textValue, onChange) {
     return wrap;
 }
 
-function renderTextEntry(manager, entry, idx, entries, commit) {
+function renderTextEntry(manager, key, entry, idx, entries, commit) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-entry';
     const update = makeEntryUpdater(entries, idx, entry, commit);
@@ -369,13 +371,11 @@ function renderTextEntry(manager, entry, idx, entries, commit) {
         wrap.appendChild(fieldRow('color', 'text', entry.color ?? '', (val) => update('color', val, {
             transform: (v) => isNaN(Number(v)) ? v : Number(v),
         })));
-        wrap.appendChild(fieldRow('description', 'textarea', entry.description ?? '',
-            (val) => update('description', val)));
-        wrap.appendChild(selectRow('details', detailsOptions(manager, entry.details), entry.details ?? '',
-            (val) => update('details', val), 'none'));
-        wrap.appendChild(renderReferencesEditor(entry.references || [], (refs) => update('references', refs, {
-            isEmpty: (v) => !(v && v.length),
-        })));
+        wrap.appendChild(renderNotesEditor(manager, key, entry,
+            (val) => update('description', val),
+            (val) => update('details', val),
+            (refs) => update('references', refs, { isEmpty: (v) => !(v && v.length) }),
+        ));
     }
 
     const remove = document.createElement('button');
@@ -388,7 +388,7 @@ function renderTextEntry(manager, entry, idx, entries, commit) {
     return wrap;
 }
 
-function renderArrowEntries(manager, item) {
+function renderArrowEntries(manager, parentKey, item) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-subgroup';
     const heading = document.createElement('div');
@@ -398,7 +398,7 @@ function renderArrowEntries(manager, item) {
 
     const entries = normalizeArray(item.arrow);
     const commit = (next) => patchItem(manager, { arrow: next && next.length ? next : null });
-    entries.forEach((entry, idx) => wrap.appendChild(renderArrowEntry(manager, entry, idx, entries, commit)));
+    entries.forEach((entry, idx) => wrap.appendChild(renderArrowEntry(manager, `${parentKey}/arrow[${idx}]`, entry, idx, entries, commit)));
 
     const add = document.createElement('button');
     add.textContent = '+ add arrow';
@@ -410,15 +410,53 @@ function renderArrowEntries(manager, item) {
     return wrap;
 }
 
-function renderArrowEntry(manager, entry, idx, entries, commit) {
+function renderArrowEntry(manager, key, entry, idx, entries, commit) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-entry';
 
     if (entry.segments) {
-        const note = document.createElement('div');
-        note.className = 'ce-badge';
-        note.textContent = `(multi-segment, ${entry.segments.length} segments — edit via JSON)`;
-        wrap.appendChild(note);
+        if (!advancedMode) {
+            const note = document.createElement('div');
+            note.className = 'ce-badge';
+            note.textContent = `(multi-segment, ${entry.segments.length} segments — enable advanced mode to edit)`;
+            wrap.appendChild(note);
+            const remove = document.createElement('button');
+            remove.textContent = 'remove';
+            remove.addEventListener('click', (e) => {
+                e.stopPropagation();
+                commit(entries.filter((_, i) => i !== idx));
+            });
+            wrap.appendChild(remove);
+            return wrap;
+        }
+
+        const update = makeEntryUpdater(entries, idx, entry, commit);
+
+        wrap.appendChild(fieldRow('previous', 'text', entry.previous ?? '',
+            (val) => update('previous', val)));
+        wrap.appendChild(renderSegmentEntries(manager, key, entry.segments,
+            (next) => update('segments', next, { isEmpty: (v) => !(v && v.length) })));
+        wrap.appendChild(renderNotesEditor(manager, key, entry,
+            (val) => update('description', val),
+            (val) => update('details', val),
+            (refs) => update('references', refs, { isEmpty: (v) => !(v && v.length) }),
+        ));
+
+        const convertBack = document.createElement('button');
+        convertBack.textContent = 'convert to single-segment';
+        convertBack.disabled = entry.segments.length !== 1;
+        convertBack.title = entry.segments.length !== 1
+            ? 'Reduce to one segment first'
+            : 'Flatten the single segment back onto the arrow';
+        convertBack.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const { segments, ...rest } = entry;
+            const next = [...entries];
+            next[idx] = { ...segments[0], ...rest };
+            commit(next);
+        });
+        wrap.appendChild(convertBack);
+
         const remove = document.createElement('button');
         remove.textContent = 'remove';
         remove.addEventListener('click', (e) => {
@@ -435,7 +473,7 @@ function renderArrowEntry(manager, entry, idx, entries, commit) {
         (val) => update('previous', val)));
     wrap.appendChild(selectRow('direction', ARROW_DIRECTIONS, entry.direction ?? '',
         (val) => update('direction', val), 'right'));
-    wrap.appendChild(renderTextEntries(manager, entry.text, (textVal) => update('text', textVal)));
+    wrap.appendChild(renderTextEntries(manager, key, entry.text, (textVal) => update('text', textVal)));
     if (advancedMode) {
         wrap.appendChild(pairRow(
             shapeNumberRow('xOffset', entry.xOffset, (val) => update('xOffset', val)),
@@ -447,13 +485,29 @@ function renderArrowEntry(manager, entry, idx, entries, commit) {
             isEmpty: (v) => !v,
             transform: () => true,
         })));
-        wrap.appendChild(fieldRow('description', 'textarea', entry.description ?? '',
-            (val) => update('description', val)));
-        wrap.appendChild(selectRow('details', detailsOptions(manager, entry.details), entry.details ?? '',
-            (val) => update('details', val), 'none'));
-        wrap.appendChild(renderReferencesEditor(entry.references || [], (refs) => update('references', refs, {
-            isEmpty: (v) => !(v && v.length),
-        })));
+        wrap.appendChild(renderNotesEditor(manager, key, entry,
+            (val) => update('description', val),
+            (val) => update('details', val),
+            (refs) => update('references', refs, { isEmpty: (v) => !(v && v.length) }),
+        ));
+
+        const convertToMulti = document.createElement('button');
+        convertToMulti.textContent = 'convert to multi-segment';
+        convertToMulti.title = 'Move direction/offsets/length/noHead/text into a single segment';
+        convertToMulti.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const SEG_KEYS = new Set(['direction', 'xOffset', 'yOffset', 'extraLength', 'noHead', 'reversed', 'text']);
+            const seed = {};
+            const parent = {};
+            for (const [k, v] of Object.entries(entry)) {
+                if (SEG_KEYS.has(k)) seed[k] = v;
+                else parent[k] = v;
+            }
+            const next = [...entries];
+            next[idx] = { ...parent, segments: [seed] };
+            commit(next);
+        });
+        wrap.appendChild(convertToMulti);
     }
 
     const remove = document.createElement('button');
@@ -463,6 +517,136 @@ function renderArrowEntry(manager, entry, idx, entries, commit) {
         commit(entries.filter((_, i) => i !== idx));
     });
     wrap.appendChild(remove);
+    return wrap;
+}
+
+// Renders a "Segments" subgroup for multi-segment arrows. The data model treats
+// each segment as a mini-arrow (arrows.js:42-65), so per-segment fields mirror
+// the single-arrow editor above.
+function renderSegmentEntries(manager, parentKey, segments, onChange) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ce-subgroup';
+    const heading = document.createElement('div');
+    heading.className = 'ce-subheading';
+    heading.textContent = 'Segments';
+    wrap.appendChild(heading);
+
+    const entries = normalizeArray(segments);
+    const commit = (next) => onChange(next && next.length ? next : null);
+    entries.forEach((entry, idx) => wrap.appendChild(renderSegmentEntry(manager, `${parentKey}/segments[${idx}]`, entry, idx, entries, commit)));
+
+    const add = document.createElement('button');
+    add.textContent = '+ add segment';
+    add.addEventListener('click', (e) => {
+        e.stopPropagation();
+        commit([...entries, {}]);
+    });
+    wrap.appendChild(add);
+    return wrap;
+}
+
+function renderSegmentEntry(manager, key, entry, idx, entries, commit) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ce-entry';
+    const update = makeEntryUpdater(entries, idx, entry, commit);
+
+    wrap.appendChild(selectRow('direction', ARROW_DIRECTIONS, entry.direction ?? '',
+        (val) => update('direction', val), '(inferred)'));
+    wrap.appendChild(pairRow(
+        shapeNumberRow('xOffset', entry.xOffset, (val) => update('xOffset', val)),
+        shapeNumberRow('yOffset', entry.yOffset, (val) => update('yOffset', val)),
+    ));
+    wrap.appendChild(shapeNumberRow('extraLength', entry.extraLength,
+        (val) => update('extraLength', val)));
+    wrap.appendChild(checkboxRow('noHead', !!entry.noHead, (val) => update('noHead', val, {
+        isEmpty: (v) => !v,
+        transform: () => true,
+    })));
+    wrap.appendChild(checkboxRow('reversed', !!entry.reversed, (val) => update('reversed', val, {
+        isEmpty: (v) => !v,
+        transform: () => true,
+    })));
+    wrap.appendChild(renderTextEntries(manager, key, entry.text, (textVal) => update('text', textVal)));
+    wrap.appendChild(renderNotesEditor(manager, key, entry,
+        (val) => update('description', val),
+        (val) => update('details', val),
+        (refs) => update('references', refs, { isEmpty: (v) => !(v && v.length) }),
+    ));
+
+    const controls = document.createElement('div');
+    controls.className = 'ce-row';
+
+    const up = document.createElement('button');
+    up.textContent = '↑';
+    up.disabled = idx === 0;
+    up.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const next = [...entries];
+        [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+        commit(next);
+    });
+    controls.appendChild(up);
+
+    const down = document.createElement('button');
+    down.textContent = '↓';
+    down.disabled = idx === entries.length - 1;
+    down.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const next = [...entries];
+        [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
+        commit(next);
+    });
+    controls.appendChild(down);
+
+    const remove = document.createElement('button');
+    remove.textContent = 'remove';
+    remove.addEventListener('click', (e) => {
+        e.stopPropagation();
+        commit(entries.filter((_, i) => i !== idx));
+    });
+    controls.appendChild(remove);
+
+    wrap.appendChild(controls);
+    return wrap;
+}
+
+// Collapsible "description / details / references" panel — this triplet
+// appears on every entity (component, item, text, arrow, segment) and dominates
+// vertical space when expanded inline. Key must be stable across re-renders so
+// the open/closed state survives the full-panel rebuild after each edit.
+function renderNotesEditor(manager, key, entity, onDescription, onDetails, onReferences) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ce-subgroup ce-notes';
+
+    const hasDesc = !!entity.description;
+    const hasDetails = !!entity.details;
+    const refs = entity.references;
+    const refsLen = Array.isArray(refs) ? refs.length : (refs && typeof refs === 'object' ? Object.keys(refs).length : 0);
+    const filled = [hasDesc && 'desc', hasDetails && 'details', refsLen > 0 && 'refs'].filter(Boolean);
+    const summary = filled.length ? ` (${filled.join(', ')})` : '';
+    const isOpen = expandedNotes.has(key);
+
+    const toggle = document.createElement('button');
+    toggle.className = 'ce-notes-toggle';
+    toggle.textContent = `${isOpen ? '▾' : '▸'} description / details / references${summary}`;
+    wrap.appendChild(toggle);
+
+    const body = document.createElement('div');
+    body.className = 'ce-notes-body';
+    body.style.display = isOpen ? '' : 'none';
+    body.appendChild(fieldRow('description', 'textarea', entity.description ?? '', onDescription));
+    body.appendChild(selectRow('details', detailsOptions(manager, entity.details), entity.details ?? '', onDetails, 'none'));
+    body.appendChild(renderReferencesEditor(entity.references || [], onReferences));
+    wrap.appendChild(body);
+
+    toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = !expandedNotes.has(key);
+        if (open) expandedNotes.add(key); else expandedNotes.delete(key);
+        body.style.display = open ? '' : 'none';
+        toggle.textContent = `${open ? '▾' : '▸'} description / details / references${summary}`;
+    });
+
     return wrap;
 }
 

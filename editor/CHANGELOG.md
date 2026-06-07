@@ -23,6 +23,7 @@ makes no API-stability guarantees.
 - Updated the DSL following the rplib-core dimension entry improvement
 - Following the above, allowed for component JSON definitions while maintaining parity for js definitions
 - Component-editor item-id validator now rejects integer-like ids (e.g. `"0"`, `"1"`, `"42"`) to match the runtime constraint enforced in rplib-core. DSL docs updated with the new id constraints and explicit `previous` scope rules (earlier sibling or prior component's tail only; never into a referenced component's internals).
+- Added multi-sgement arrows to editor
 
 ### Fixed
 
