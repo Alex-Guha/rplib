@@ -207,7 +207,7 @@ GPT layer` }));
 
 function renderEditTab() {
     const frag = document.createDocumentFragment();
-    frag.appendChild(el('p', { html: '<b>Sidebar:</b> hovering or clicking a diagram item fills <code>#info</code> (description) and <code>#references</code> (linked sources). <code>info</code> / <code>references</code> / <code>details</code> can be set at the component level (a default for everything inside) or overridden per-item / per-text / per-arrow.' }));
+    frag.appendChild(el('p', { html: '<b>Sidebar:</b> hovering or clicking a diagram item fills <code>#info</code> (description) and the <code>#panels</code> region (configured panels, e.g. references). <code>info</code> / <code>references</code> / <code>details</code> can be set at the component level (a default for everything inside) or overridden per-item / per-text / per-arrow.' }));
     frag.appendChild(el('p', { html: '<b>Edit mode:</b> the edit button unlocks the abstract editor and component editor. Edit-history undo/redo uses the same arrow buttons as view-history — but only one set of history is live at a time.' }));
     frag.appendChild(el('p', { html: 'Clicking another nav button while the abstract editor is open auto-exits edit mode and restores the previous view — so it looks like data loss, but the abstract text is preserved.' }));
     return frag;

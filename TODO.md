@@ -1,5 +1,4 @@
 ### Editing
-- Consider what the references box could be used for. Maybe that becomes the text entry field for the component editing mode, where a user can select "Edit info" and type in this.
 - When users want to move components inside components, auto create an empty point before the componet with no separation and move that, implicitly repositioning the component without requiring edits to it
 - click-to-set-previous
 - `swapModules`-style content overrides on imported component references (and the per-item `class` field that enables them)
@@ -8,9 +7,6 @@
 - make it possible to click and drag an element, and have all subsequent elements in the graph move with it
 - if also holding shift, only move the selected element
 
-
-### Genericize the reference box in rplib-core
-- Consumers might not want or need "references"
 
 ### Comparison
 Add the ability to compare two abstracts visually (highlighting the differences between generations)
@@ -40,8 +36,8 @@ Add the ability to compare two abstracts visually (highlighting the differences 
 - Auto split text into multiple lines based on textObject width, if it exists
 
 ### Efficiency and Optimization
-#### updateReferences
-Stop redrawing references when they are the same as the previous ones, without storing the previous references in a global variable
+#### Panel re-renders
+`PanelHost.update` re-resolves and re-renders every panel on each hover/reset. Skip re-rendering panels whose resolved data is unchanged from the previous update, without stashing it in a global.
 
 #### renderElements
 Look into D3's enter-update-exit pattern to optimize rendering.

@@ -537,4 +537,25 @@ export default class RPCanvas {
         }
         return currentContent()?.[id]?.[property];
     }
+
+    /**
+     * Resolve a property for the panel system: walk element → ancestor first
+     * (via `findHierarchicalElementProperty`), then fall back to the current
+     * view's same-named property. `id === null` (sidebar reset / no hovered
+     * element) resolves to the view-level value only.
+     *
+     * Generalizes the references-specific lookup the editor/viewer sidebars
+     * used to inline, so a panel keyed to any `property` resolves
+     * `element[property]` → ancestor → `view[property]` with no extra code.
+     * @param {string|null} id
+     * @param {string} property
+     */
+    resolveProperty = (id, property) => {
+        if (id != null) {
+            const fromElement = this.findHierarchicalElementProperty(id, property);
+            if (fromElement != null) return fromElement;
+        }
+        const view = this.store.views[this.store.currentView];
+        return view ? (view[property] ?? null) : null;
+    }
 }

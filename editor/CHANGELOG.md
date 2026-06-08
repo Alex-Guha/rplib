@@ -5,6 +5,39 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 follows [SemVer](https://semver.org/) starting from `1.0.0`. The `0.x` series
 makes no API-stability guarantees.
 
+## [0.3.0]
+
+### Changed (BREAKING)
+
+- **References is no longer built in.** The single references sidebar box is
+  now a generic, consumer-configured **Panel** system. `createEditor` gains a
+  `panels` option (default `[]`); supply a references panel to render references
+  — until you do, references data is parsed but not displayed, and the component
+  editor edits it as raw JSON. See the README "Panels" section for the canonical
+  `referencesPanel` recipe (display + edit schema) and wiring. Requires
+  `@alexguha/rplib@^0.3.0`.
+- **Sidebar DOM rename.** The host page must now provide a `#panels` element
+  (was `#references`) as the sidebar content region; the references-specific
+  `REFERENCE_BACKGROUND` theme key / `--reference-background-color` variable and
+  the `#references-list` CSS are gone (replaced by `PANEL_BACKGROUND` /
+  `--panel-background-color` and generic `.rplib-panel` styling).
+
+### Changed
+
+- The sidebar content region is driven by `@alexguha/rplib/panel`'s `PanelHost`,
+  which renders an ordered array of panel defs into stacked slots and handles
+  transient takeover for errors/confirmations (so they work even with
+  `panels: []`). The editor no longer duplicates `updateReferences` /
+  `renderInfoContent`; it imports the shared core implementation.
+- The component editor renders an editor per configured panel for the current
+  entity (description/details stay editor-native), replacing the hardcoded
+  references form. Panels declare editability via `itemFields` (declarative
+  schema) or `renderEditor` (imperative), falling back to raw-JSON editing.
+- Panels may declare their own `theme` background key; unthemed panels use
+  `PANEL_BACKGROUND` / `--panel-background-color`. The box styling moved from the
+  region element to `.rplib-panel`; the region (`#panels`) is now a bare flex
+  layout column.
+
 ## [0.2.0]
 
 ### Changed (BREAKING)

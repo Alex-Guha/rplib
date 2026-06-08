@@ -1,6 +1,12 @@
 import { navigateTo } from './navigation.js';
 import { setSidebarState } from '../utils/state.js';
-import { appendMultilineText } from '../utils/dom.js';
+import { buildPanelContext, renderRichText } from '@alexguha/rplib/panel';
+
+// Re-render the configured sidebar panels for the given hovered element id
+// (null on reset).
+function updatePanels(manager, id = null) {
+    manager.panelHost?.update(buildPanelContext({ manager, id }));
+}
 
 // Wire up the background-click reset. Call once from createViewer after the DOM is ready.
 export function initSidebar(manager) {
@@ -11,7 +17,7 @@ export function initSidebar(manager) {
 export function resetSidebar(manager) {
     setSidebarState(manager, null);
     updateInfo(manager, '');
-    updateReferences(manager);
+    updatePanels(manager, null);
 
     // QoL: Clear any accidental highlights
     if (window.getSelection) {
@@ -27,33 +33,9 @@ export function updateSidebar(event, manager) {
     const target = event.currentTarget;
     const id = target.getAttribute('id');
 
-    updateReferences(manager, manager.canvas.findHierarchicalElementProperty(id, 'references') || null);
+    updatePanels(manager, id);
     const hasDetails = !!manager.canvas.findHierarchicalElementProperty(id, 'details');
     updateInfo(manager, manager.canvas.findHierarchicalElementProperty(id, 'description') || "No additional information.", hasDetails);
-}
-
-// Handles hovering over items in the reference box
-export function attachReferenceEventListeners(element) {
-    let originalNodes = null;
-
-    element.on('mouseover', (event) => {
-        const infoBox = document.getElementById('info');
-        originalNodes = document.createDocumentFragment();
-        while (infoBox.firstChild) {
-            originalNodes.appendChild(infoBox.firstChild);
-        }
-
-        renderInfoContent(event.currentTarget.dataset.info, infoBox);
-    })
-        .on('mouseout', () => {
-            if (originalNodes !== null) {
-                const infoBox = document.getElementById('info');
-                infoBox.innerHTML = '';
-                infoBox.appendChild(originalNodes);
-                originalNodes = null;
-            }
-        })
-        .style('cursor', 'pointer');
 }
 
 // Handles items with details (double-clickable items)
@@ -103,44 +85,6 @@ export function attachElementEventListeners(element, manager) {
         .style('cursor', 'pointer');
 }
 
-// Creates the references box
-export function updateReferences(manager, elementReferences = null) {
-    const referencesBox = document.getElementById('references');
-    referencesBox.innerHTML = '';
-    referencesBox.appendChild(document.createElement('h3')).textContent = 'References';
-    referencesBox.style = '';
-
-    const referencesList = document.createElement('ul');
-    referencesList.id = 'references-list';
-
-    let refsToRender = elementReferences;
-    if (!refsToRender) refsToRender = manager.canvas.store.views[manager.canvas.store.currentView]
-        ? manager.canvas.store.views[manager.canvas.store.currentView].references
-        : null;
-
-    if (refsToRender) {
-        Object.entries(refsToRender).forEach(([title, ref]) => {
-            const li = document.createElement('li');
-            const a = document.createElement('a');
-
-            a.href = ref.link || '#';
-            a.target = "_blank";
-            a.textContent = (title || 'Untitled') + (ref.refType ? ` (${ref.refType})` : '');
-            a.dataset.info =
-                (ref.title ? `**Reference Name:** ${ref.title}\n\n` : '') +
-                (ref.info ? `**Description:** ${ref.info}\n\n` : '') +
-                (ref.authors && ref.authors.length ? `**Authors:**\n${ref.authors.map(a => `• ${a}`).join('\n')}\n\n` : '') +
-                (ref.refType ? `**Link type:** ${ref.refType}\n\n` : '');
-
-            attachReferenceEventListeners(d3.select(a));
-
-            li.appendChild(a);
-            referencesList.appendChild(li);
-        });
-    }
-    referencesBox.appendChild(referencesList);
-}
-
 // Creates the info box. `manager` is required to resolve {{property}}
 // placeholders against the current root abstract's properties.
 export function updateInfo(manager, content, hasDetails = false) {
@@ -151,7 +95,7 @@ export function updateInfo(manager, content, hasDetails = false) {
     const rootProps = rootView ? (manager.canvas.store.abstractDefinitions[rootView]?.properties || {}) : {};
     content = replacePlaceholders(content, rootProps);
 
-    renderInfoContent(content, element);
+    renderRichText(content, element);
 
     if (hasDetails) {
         const footer = document.createElement('div');
@@ -161,61 +105,9 @@ export function updateInfo(manager, content, hasDetails = false) {
     }
 }
 
-function renderInfoContent(content, element) {
-    let currentIndex = 0;
-    while (currentIndex < content.length) {
-        if (content.startsWith('$$', currentIndex)) {
-            currentIndex = handleLaTeXContent(content, currentIndex, element);
-        } else if (content.startsWith('**', currentIndex)) {
-            currentIndex = handleBoldContent(content, currentIndex, element);
-        } else {
-            currentIndex = handlePlainText(content, currentIndex, element);
-        }
-    }
-}
-
 function replacePlaceholders(text, properties) {
     const templateRegex = /\{\{([^}|]+)(\|([^}]+))?\}\}/g;
     return text.replace(templateRegex, (_, propName, _defaultPart, defaultValue) => {
         return properties.hasOwnProperty(propName) ? properties[propName] : (defaultValue ?? '');
     });
-}
-
-function handleLaTeXContent(content, currentIndex, element) {
-    const endIndex = content.indexOf('$$', currentIndex + 2);
-    if (endIndex === -1) {
-        console.error('Unclosed LaTeX at position', currentIndex);
-        return content.length;
-    }
-    const latexContent = content.slice(currentIndex + 2, endIndex);
-    const span = document.createElement('span');
-    katex.render(latexContent, span, {
-        throwOnError: false,
-        displayMode: false
-    });
-    element.appendChild(span);
-    return endIndex + 2;
-}
-
-function handleBoldContent(content, currentIndex, element) {
-    const endIndex = content.indexOf('**', currentIndex + 2);
-    if (endIndex === -1) {
-        console.error('Unclosed bold at position', currentIndex);
-        return content.length;
-    }
-    const boldContent = content.slice(currentIndex + 2, endIndex);
-    const strong = document.createElement('strong');
-    strong.textContent = boldContent;
-    element.appendChild(strong);
-    return endIndex + 2;
-}
-
-function handlePlainText(content, currentIndex, element) {
-    const nextSpecialChar = Math.min(
-        content.indexOf('$$', currentIndex) === -1 ? Infinity : content.indexOf('$$', currentIndex),
-        content.indexOf('**', currentIndex) === -1 ? Infinity : content.indexOf('**', currentIndex)
-    );
-    const textContent = content.slice(currentIndex, nextSpecialChar === Infinity ? undefined : nextSpecialChar);
-    appendMultilineText(element, textContent);
-    return nextSpecialChar === Infinity ? content.length : nextSpecialChar;
 }

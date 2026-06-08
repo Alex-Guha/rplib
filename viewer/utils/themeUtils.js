@@ -25,7 +25,7 @@ export function applyTheme(newTheme, root) {
     root.style.setProperty('--text-default-color', newTheme.TEXT_DEFAULT);
     root.style.setProperty('--svg-background-color', newTheme.SVG_BACKGROUND);
     root.style.setProperty('--info-background-color', newTheme.INFO_BACKGROUND);
-    root.style.setProperty('--reference-background-color', newTheme.REFERENCE_BACKGROUND);
+    root.style.setProperty('--panel-background-color', newTheme.PANEL_BACKGROUND);
 
     root.style.setProperty('--shape-fill-color', newTheme.SHAPE_FILL);
     root.style.setProperty('--shape-stroke-color', newTheme.SHAPE_STROKE);

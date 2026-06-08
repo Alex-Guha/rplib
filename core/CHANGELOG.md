@@ -5,6 +5,23 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 follows [SemVer](https://semver.org/) starting from `1.0.0`. The `0.x` series
 makes no API-stability guarantees.
 
+## [0.3.0]
+
+### Added
+
+- **Panel system** (`@alexguha/rplib/panel`): the generic sidebar-content
+  mechanism shared by the editor and viewer. Exports `PanelHost`,
+  `buildPanelContext`, `definePanel`, and `renderRichText` (the former
+  editor/viewer `renderInfoContent` — `**bold**` / `$$latex$$` / plaintext —
+  hoisted here so both UIs share one implementation). Core ships only the
+  mechanism; it contains **no** built-in panel renderers (references included).
+  A panel def owns display + edit + data-key as one unit, so a consumer can
+  carry an entire domain concept (e.g. references) with no privileged access to
+  the library. See README for the def shape and the `ctx` object.
+- `canvas.resolveProperty(id, property)` — resolves a property element →
+  ancestor → current-view (generalizing the references-specific fallback the
+  sidebars used to inline). `id === null` resolves to the view-level value only.
+
 ## [0.2.0]
 
 ### Added

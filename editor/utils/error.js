@@ -1,43 +1,41 @@
-import { updateReferences } from '../core/sidebar.js';
 import { appendMultilineText } from './dom.js';
 
-// Render an error-themed message into the references box.
+// Render an error-themed message into a transient panel slot.
 // `message`: first line becomes the header, remaining lines become the body.
-// Returns the box element so callers can attach extra controls (e.g. buttons).
-function renderInReferencesBox(message, manager) {
-    const box = document.getElementById('references');
-    box.innerHTML = '';
+// Returns the slot element so callers can attach extra controls (e.g. buttons).
+// Routed through the PanelHost's transient takeover, so it works regardless of
+// which panels (if any) the consumer configured.
+function renderErrorPanel(message, manager) {
+    return manager.panelHost.pushTransient((slot) => {
+        slot.style.setProperty('background-color', manager.currentTheme.ERROR_BACKGROUND);
+        slot.style.setProperty('color', manager.currentTheme.ERROR_TEXT);
 
-    box.style.setProperty('background-color', manager.currentTheme.ERROR_BACKGROUND);
-    box.style.setProperty('color', manager.currentTheme.ERROR_TEXT);
+        const lines = message.split('\n');
 
-    const lines = message.split('\n');
+        const header = document.createElement('h3');
+        header.textContent = lines[0];
+        slot.appendChild(header);
 
-    const header = document.createElement('h3');
-    header.textContent = lines[0];
-    box.appendChild(header);
-
-    const body = document.createElement('div');
-    body.style.marginTop = '10px';
-    appendMultilineText(body, lines.slice(1).join('\n'), { paragraphBreak: true });
-    box.appendChild(body);
-
-    return box;
+        const body = document.createElement('div');
+        body.style.marginTop = '10px';
+        appendMultilineText(body, lines.slice(1).join('\n'), { paragraphBreak: true });
+        slot.appendChild(body);
+    });
 }
 
 export function displayError(message, manager) {
-    renderInReferencesBox(message, manager);
+    renderErrorPanel(message, manager);
 }
 
 export function confirmAction(message, manager) {
     return new Promise((resolve) => {
-        // Prevent memory leaks if the references box is cleared before an option is selected
+        // Prevent memory leaks if the panel is cleared before an option is selected
         const timeout = setTimeout(() => {
             resolve(false);
-            updateReferences(manager);
+            manager.panelHost.restore();
         }, 30000);
 
-        const box = renderInReferencesBox(message, manager);
+        const slot = renderErrorPanel(message, manager);
 
         const confirmButton = document.createElement('button');
         confirmButton.textContent = 'Confirm';
@@ -46,15 +44,15 @@ export function confirmAction(message, manager) {
             clearTimeout(timeout);
             resolve(true);
         });
-        box.appendChild(confirmButton);
+        slot.appendChild(confirmButton);
 
         const cancelButton = document.createElement('button');
         cancelButton.textContent = 'Cancel';
         cancelButton.addEventListener('click', () => {
             clearTimeout(timeout);
             resolve(false);
-            updateReferences(manager);
+            manager.panelHost.restore();
         });
-        box.appendChild(cancelButton);
+        slot.appendChild(cancelButton);
     });
 }

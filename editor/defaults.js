@@ -3,7 +3,7 @@ export const THEME = {
     TEXT_DEFAULT: '#e0e0e0',
     SVG_BACKGROUND: '#2a2a2a',
     INFO_BACKGROUND: '#2a2a2a',
-    REFERENCE_BACKGROUND: '#2a2a2a',
+    PANEL_BACKGROUND: '#2a2a2a',
 
     SHAPE_FILL: '#3a3a3a',
     SHAPE_STROKE: '#555',

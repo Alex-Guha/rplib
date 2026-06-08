@@ -18,6 +18,7 @@
     "editHistory.js",
     "layout.js",
     "mutate.js",
+    "panel.js",
     "renderView.js",
     "viewStore.js",
     "parser/index.js",

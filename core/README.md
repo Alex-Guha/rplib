@@ -74,6 +74,7 @@ loadRootView(canvas, localStorage, /* fallback view name */ 'my_view');
 | `canvas.invalidateView(name?)` | Drop the cached resolved view (force re-resolve next nav). |
 | `canvas.invalidateLayout(name?, ids?)` | Drop cached layouts (descendants chained via `previous` are auto-invalidated). |
 | `canvas.findHierarchicalElementProperty(id, prop)` | Walk a dotted id from most-specific to least to find an inherited property. |
+| `canvas.resolveProperty(id, prop)` | Resolve `prop` element → ancestor → current-view. `id === null` resolves the view-level value only. Backs the panel system's data path. |
 | `canvas.getItem(viewName, id)` | Read an item from a resolved view. Returns `null` if missing. |
 | `canvas.updateItem(viewName, id, patch)` | Shallow-merge patch into an item. `null` deletes a key. |
 | `canvas.addItem(viewName, id, item, {before?, after?})` | Insert an item; defaults to appending. |
@@ -101,6 +102,53 @@ the internal render path — apps should always call `changeViews`.
 - `resolveView(canvas, name) -> { view, isRoot } | null` — bring your own DSL.
 - `Reporter` `{ error, warn }` — `setReporter`.
 - `Storage` Web Storage-shaped `{ getItem, setItem, removeItem }` — every export in `parser/storage.js` takes one.
+
+## Panels (`@alexguha/rplib/panel`)
+
+The generic sidebar-content mechanism shared by `@alexguha/rplib-editor` and
+`@alexguha/rplib-viewer`. Core ships only the mechanism — it has **no** built-in
+panel renderers (references included). A consumer configures an ordered array of
+panel defs and passes it to `createEditor({ panels })` / `createViewer({ panels })`.
+
+```js
+import { definePanel, PanelHost, buildPanelContext, renderRichText } from '@alexguha/rplib/panel';
+```
+
+| Export | What it does |
+| --- | --- |
+| `definePanel(def)` | Validate/normalize a panel definition (below). |
+| `PanelHost` | Owns the sidebar content region; renders the panel array into stacked slots; `update(ctx)` / `pushTransient(fn)` / `restore()`. |
+| `buildPanelContext({ manager, id?, infoEl? })` | Build the per-update `ctx` passed to `resolve`/`render`. |
+| `renderRichText(str, el)` | Render `**bold**` / `$$latex$$` (via the global `katex`) / plaintext into `el`. |
+
+**Panel definition** — a plain object owning *display + edit + data-key* as one unit:
+
+```js
+definePanel({
+  name: 'references',                 // unique key (required)
+  title: 'References',                // string | (ctx) => string
+  property: 'references',             // element/view property to resolve…
+  // resolve: (ctx) => ctx.resolveProperty('references'),  // …or full control
+  showWhen: (data, ctx) => !!data,    // optional; hide empty panels
+  render: (container, data, ctx) => { /* build DOM */ },   // required
+  theme: { background: 'PANEL_BACKGROUND' },               // optional theme key (defaults to PANEL_BACKGROUND)
+
+  // Editability (consumed by the editor's component editor):
+  itemFields: { title: 'text', link: 'text', info: 'textarea', authors: 'list' },
+  itemKey: 'title',                   // store as an object keyed by this field
+  // renderEditor: (container, value, onChange, ctx) => { /* full control */ },
+})
+```
+
+A panel with none of `itemFields` / `renderEditor` edits as raw JSON (the
+automatic fallback).
+
+**The `ctx` object** (built once per sidebar update):
+
+- `manager`, `id` (hovered element id, or `null` on reset), `view`, `viewData`
+- `resolveProperty(prop)` — element → ancestor → view-level (`canvas.resolveProperty`)
+- `renderRichText(str, el)` — bold/LaTeX/plaintext
+- `attachHoverPreview(linkEl)` — while hovering `linkEl`, swap the info pane for the rich-text in `linkEl.dataset.info`
 
 ## Tests
 

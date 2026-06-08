@@ -207,11 +207,14 @@ function renderComponentLevelForm(manager) {
     wrap.appendChild(renderNotesEditor(manager, '__component__', def,
         (val) => patchComponentLevel(manager, { description: val === '' ? null : val }),
         (val) => patchComponentLevel(manager, { details: val === '' ? null : val }),
-        (next) => patchComponentLevel(manager, { references: next }),
+        (prop, val) => patchComponentLevel(manager, { [prop]: val }),
     ));
 
-    // Passthrough JSON editor for unknown top-level keys
-    const knownKeys = new Set(['content', 'description', 'details', 'references']);
+    // Passthrough JSON editor for unknown top-level keys. Properties backed by a
+    // configured panel are edited by that panel (in the notes editor above), so
+    // they're excluded here alongside the editor-native description/details.
+    const panelProps = (manager.panels || []).map((p) => p.property).filter(Boolean);
+    const knownKeys = new Set(['content', 'description', 'details', ...panelProps]);
     for (const [key, value] of Object.entries(def)) {
         if (knownKeys.has(key)) continue;
         wrap.appendChild(fieldRow(`${key} (JSON)`, 'textarea', JSON.stringify(value, null, 2), (val) => {
@@ -319,7 +322,7 @@ function renderItemLevelForm(manager) {
     wrap.appendChild(renderNotesEditor(manager, `item:${componentEditState.target}`, item,
         (val) => patchItem(manager, { description: val === '' ? null : val }),
         (val) => patchItem(manager, { details: val === '' ? null : val }),
-        (next) => patchItem(manager, { references: next }),
+        (prop, val) => patchItem(manager, { [prop]: val }),
     ));
     const itemKey = `item:${componentEditState.target}`;
     wrap.appendChild(renderTextEntries(manager, itemKey, item.text, (next) => patchItem(manager, { text: next })));
@@ -374,7 +377,7 @@ function renderTextEntry(manager, key, entry, idx, entries, commit) {
         wrap.appendChild(renderNotesEditor(manager, key, entry,
             (val) => update('description', val),
             (val) => update('details', val),
-            (refs) => update('references', refs, { isEmpty: (v) => !(v && v.length) }),
+            (prop, val) => update(prop, val, { isEmpty: (v) => v == null }),
         ));
     }
 
@@ -439,7 +442,7 @@ function renderArrowEntry(manager, key, entry, idx, entries, commit) {
         wrap.appendChild(renderNotesEditor(manager, key, entry,
             (val) => update('description', val),
             (val) => update('details', val),
-            (refs) => update('references', refs, { isEmpty: (v) => !(v && v.length) }),
+            (prop, val) => update(prop, val, { isEmpty: (v) => v == null }),
         ));
 
         const convertBack = document.createElement('button');
@@ -488,7 +491,7 @@ function renderArrowEntry(manager, key, entry, idx, entries, commit) {
         wrap.appendChild(renderNotesEditor(manager, key, entry,
             (val) => update('description', val),
             (val) => update('details', val),
-            (refs) => update('references', refs, { isEmpty: (v) => !(v && v.length) }),
+            (prop, val) => update(prop, val, { isEmpty: (v) => v == null }),
         ));
 
         const convertToMulti = document.createElement('button');
@@ -570,7 +573,7 @@ function renderSegmentEntry(manager, key, entry, idx, entries, commit) {
     wrap.appendChild(renderNotesEditor(manager, key, entry,
         (val) => update('description', val),
         (val) => update('details', val),
-        (refs) => update('references', refs, { isEmpty: (v) => !(v && v.length) }),
+        (prop, val) => update(prop, val, { isEmpty: (v) => v == null }),
     ));
 
     const controls = document.createElement('div');
@@ -610,25 +613,34 @@ function renderSegmentEntry(manager, key, entry, idx, entries, commit) {
     return wrap;
 }
 
-// Collapsible "description / details / references" panel — this triplet
-// appears on every entity (component, item, text, arrow, segment) and dominates
-// vertical space when expanded inline. Key must be stable across re-renders so
-// the open/closed state survives the full-panel rebuild after each edit.
-function renderNotesEditor(manager, key, entity, onDescription, onDetails, onReferences) {
+// Collapsible notes editor. `description` and `details` are editor-native (they
+// back the info box and drill-down navigation). Everything else is driven by the
+// configured `panels` (manager.panels): each panel that owns a `property` gets an
+// editor rendered for the current entity, so domain concepts like "references"
+// live entirely in the consumer's panel def. Key must be stable across
+// re-renders so the open/closed state survives the full-panel rebuild after each
+// edit. `patchProp(property, value)` writes a panel-backed property on the entity.
+function renderNotesEditor(manager, key, entity, onDescription, onDetails, patchProp) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-subgroup ce-notes';
 
+    const panels = (manager.panels || []).filter((p) => p.property);
+
     const hasDesc = !!entity.description;
     const hasDetails = !!entity.details;
-    const refs = entity.references;
-    const refsLen = Array.isArray(refs) ? refs.length : (refs && typeof refs === 'object' ? Object.keys(refs).length : 0);
-    const filled = [hasDesc && 'desc', hasDetails && 'details', refsLen > 0 && 'refs'].filter(Boolean);
+    const labelParts = ['description', 'details', ...panels.map((p) => p.name)];
+    const filled = [
+        hasDesc && 'desc',
+        hasDetails && 'details',
+        ...panels.map((p) => isNonEmptyValue(entity[p.property]) && p.name),
+    ].filter(Boolean);
     const summary = filled.length ? ` (${filled.join(', ')})` : '';
+    const labelText = labelParts.join(' / ');
     const isOpen = expandedNotes.has(key);
 
     const toggle = document.createElement('button');
     toggle.className = 'ce-notes-toggle';
-    toggle.textContent = `${isOpen ? '▾' : '▸'} description / details / references${summary}`;
+    toggle.textContent = `${isOpen ? '▾' : '▸'} ${labelText}${summary}`;
     wrap.appendChild(toggle);
 
     const body = document.createElement('div');
@@ -636,7 +648,10 @@ function renderNotesEditor(manager, key, entity, onDescription, onDetails, onRef
     body.style.display = isOpen ? '' : 'none';
     body.appendChild(fieldRow('description', 'textarea', entity.description ?? '', onDescription));
     body.appendChild(selectRow('details', detailsOptions(manager, entity.details), entity.details ?? '', onDetails, 'none'));
-    body.appendChild(renderReferencesEditor(entity.references || [], onReferences));
+    for (const panel of panels) {
+        body.appendChild(renderPanelEditor(manager, panel, entity[panel.property],
+            (next) => patchProp(panel.property, next)));
+    }
     wrap.appendChild(body);
 
     toggle.addEventListener('click', (e) => {
@@ -644,87 +659,138 @@ function renderNotesEditor(manager, key, entity, onDescription, onDetails, onRef
         const open = !expandedNotes.has(key);
         if (open) expandedNotes.add(key); else expandedNotes.delete(key);
         body.style.display = open ? '' : 'none';
-        toggle.textContent = `${open ? '▾' : '▸'} description / details / references${summary}`;
+        toggle.textContent = `${open ? '▾' : '▸'} ${labelText}${summary}`;
     });
 
     return wrap;
 }
 
-function renderReferencesEditor(rawReferences, onChange) {
+function isNonEmptyValue(v) {
+    if (v == null) return false;
+    if (Array.isArray(v)) return v.length > 0;
+    if (typeof v === 'object') return Object.keys(v).length > 0;
+    return v !== '';
+}
+
+// Render the editor for one panel-backed property on the current entity.
+// Three tiers (see panel def §8): imperative `renderEditor` (full control) →
+// declarative `itemFields` schema → raw-JSON passthrough fallback.
+function renderPanelEditor(manager, panel, value, onChange) {
+    const title = (typeof panel.title === 'string' && panel.title) || panel.name;
+
+    if (typeof panel.renderEditor === 'function') {
+        const wrap = document.createElement('div');
+        wrap.className = 'ce-subgroup';
+        const heading = document.createElement('div');
+        heading.className = 'ce-subheading';
+        heading.textContent = title;
+        wrap.appendChild(heading);
+        panel.renderEditor(wrap, value, onChange, { manager, advancedMode });
+        return wrap;
+    }
+
+    if (panel.itemFields) {
+        return renderSchemaCollection(panel, title, value, onChange);
+    }
+
+    // Fallback: edit the raw value as JSON.
+    return fieldRow(`${title} (JSON)`, 'textarea', JSON.stringify(value ?? null, null, 2), (val) => {
+        let parsed;
+        try { parsed = JSON.parse(val); } catch { return; }
+        onChange(parsed);
+    });
+}
+
+// Declarative list editor driven by a panel's `itemFields` schema. The value is
+// a collection of items; each item renders an input per field. When the panel
+// declares `itemKey`, the collection is stored as an object keyed by that field
+// (e.g. references keyed by title) and round-trips in that shape; otherwise it
+// is a plain array. Empty collections commit as null so the key is dropped.
+function renderSchemaCollection(panel, title, rawValue, onChange) {
     const wrap = document.createElement('div');
     wrap.className = 'ce-subgroup';
     const heading = document.createElement('div');
     heading.className = 'ce-subheading';
-    heading.textContent = 'References';
+    heading.textContent = title;
     wrap.appendChild(heading);
 
-    // References may arrive as an array or as an object keyed by title.
-    // Normalize to array form for editing, and restore the original shape on change.
-    const wasObject = rawReferences && !Array.isArray(rawReferences) && typeof rawReferences === 'object';
-    const references = wasObject
-        ? Object.entries(rawReferences).map(([title, value]) => ({ title, ...(value || {}) }))
-        : (rawReferences || []);
+    const fieldNames = Object.keys(panel.itemFields);
+    const itemKey = panel.itemKey ?? null;            // field that doubles as the object key
+    const objectForm = itemKey != null;
+
+    // Normalize stored value → array of item objects for editing.
+    let items;
+    if (Array.isArray(rawValue)) {
+        items = rawValue.map((it) => ({ ...(it || {}) }));
+    } else if (rawValue && typeof rawValue === 'object') {
+        items = objectForm
+            ? Object.entries(rawValue).map(([k, v]) => ({ [itemKey]: k, ...(v || {}) }))
+            : Object.values(rawValue).map((v) => ({ ...(v || {}) }));
+    } else {
+        items = [];
+    }
+
     const emit = (next) => {
-        if (!wasObject) return onChange(next);
-        if (!next) return onChange(null);
+        if (!next || next.length === 0) return onChange(null);
+        if (!objectForm) return onChange(next);
         const obj = {};
-        for (const entry of next) {
-            const { title, ...rest } = entry || {};
-            const key = title ?? '';
-            obj[key] = rest;
+        for (const item of next) {
+            const { [itemKey]: k, ...rest } = item || {};
+            obj[k ?? ''] = rest;
         }
         onChange(obj);
     };
 
-    references.forEach((ref, idx) => {
+    const setField = (idx, field, value, empty) => {
+        const next = items.map((it, i) => (i === idx ? { ...it } : it));
+        if (empty) delete next[idx][field];
+        else next[idx][field] = value;
+        emit(next);
+    };
+
+    items.forEach((item, idx) => {
         const entry = document.createElement('div');
         entry.className = 'ce-entry';
-        const keys = Object.keys(ref);
-        keys.forEach((k) => {
-            entry.appendChild(fieldRow(k, 'text', String(ref[k] ?? ''), (val) => {
-                const next = references.map((r, i) => i === idx ? { ...r, [k]: val } : r);
-                emit(next);
-            }));
-        });
-        if (advancedMode) {
-            const addKey = document.createElement('button');
-            addKey.textContent = '+ add field';
-            addKey.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const key = window.prompt('Field name?');
-                if (!key) return;
-                const next = references.map((r, i) => i === idx ? { ...r, [key]: '' } : r);
-                emit(next);
-            });
-            entry.appendChild(addKey);
+        for (const field of fieldNames) {
+            const type = panel.itemFields[field];
+            if (type === 'list') {
+                entry.appendChild(fieldRow(field, 'textarea', listToText(item[field]), (val) => {
+                    const arr = textToList(val);
+                    setField(idx, field, arr, arr.length === 0);
+                }));
+            } else {
+                entry.appendChild(fieldRow(field, type === 'textarea' ? 'textarea' : 'text', String(item[field] ?? ''), (val) => {
+                    setField(idx, field, val, val === '');
+                }));
+            }
         }
-
         const remove = document.createElement('button');
-        remove.textContent = 'remove reference';
+        remove.textContent = 'remove';
         remove.addEventListener('click', (e) => {
             e.stopPropagation();
-            const next = references.filter((_, i) => i !== idx);
-            emit(next.length ? next : null);
+            emit(items.filter((_, i) => i !== idx));
         });
         entry.appendChild(remove);
         wrap.appendChild(entry);
     });
 
-    if (advancedMode) {
-        const addRef = document.createElement('button');
-        addRef.textContent = '+ add reference';
-        addRef.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const id = window.prompt('Reference id?');
-            if (!id) return;
-            emit([...references, wasObject ? { title: id } : { id }]);
-        });
-        wrap.appendChild(addRef);
-    } else if (references.length === 0) {
-        // Don't render an empty subgroup with no affordance to populate it.
-        return document.createDocumentFragment();
-    }
+    const add = document.createElement('button');
+    add.textContent = `+ add ${title.toLowerCase()}`;
+    add.addEventListener('click', (e) => {
+        e.stopPropagation();
+        emit([...items, {}]);
+    });
+    wrap.appendChild(add);
+
     return wrap;
+}
+
+// 'list'-typed fields edit as newline-separated text (one value per line).
+function listToText(value) {
+    return Array.isArray(value) ? value.join('\n') : (value == null ? '' : String(value));
+}
+function textToList(text) {
+    return text.split('\n').map((s) => s.trim()).filter(Boolean);
 }
 
 function renderBottomButtons(manager) {

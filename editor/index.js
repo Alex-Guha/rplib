@@ -37,9 +37,14 @@ import { loadSettings, loadCustomComponents } from './utils/storage.js';
  * @param {{error: Function, warn: Function}} [config.reporter] — diagnostics sink for both
  *                                      the editor and the underlying rplib canvas.
  *                                      Defaults to `console`.
+ * @param {object[]} [config.panels]  — ordered array of panel definitions (see
+ *                                      `@alexguha/rplib/panel` `definePanel`) rendered
+ *                                      into the sidebar content region. Defaults to `[]`
+ *                                      (empty region). References is no longer built in —
+ *                                      supply a references panel to render it (see README).
  * @returns {Promise<AppManager>}
  */
-export async function createEditor({ dataDir, data, labels, themes, repoUrl, storage, reporter }) {
+export async function createEditor({ dataDir, data, labels, themes, repoUrl, storage, reporter, panels }) {
     const effectiveReporter = reporter ?? console;
 
     let abstractDefinitions;
@@ -52,7 +57,7 @@ export async function createEditor({ dataDir, data, labels, themes, repoUrl, sto
         throw new Error('rplib-editor: createEditor requires either `dataDir` or pre-aggregated `data`.');
     }
 
-    const manager = new AppManager({ components, labels, themes, repoUrl, storage, reporter });
+    const manager = new AppManager({ components, labels, themes, repoUrl, storage, reporter, panels });
 
     initSidebar(manager);
     mountGithubButton(repoUrl);

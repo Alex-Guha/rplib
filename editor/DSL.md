@@ -81,6 +81,7 @@ Examples: `"2h"`, `"0.75w"`, `"-w/8"`, `"h + s + w/4"`, `"(h - w) / 2"`. Strings
 
 ### `references` *(array of objects)* (Optional)
 - Populates the references box when items in the component are hovered or clicked
+- **Now just data.** As of editor/viewer `0.3.0`, references is no longer built in: the DSL contract is unchanged, but stock rplib renders it only when a consumer supplies a **references panel** via `createEditor({ panels: [...] })` / `createViewer({ panels: [...] })`. See the editor/viewer README "Panels" section and `@alexguha/rplib/panel` for the canonical `referencesPanel` recipe. The data below requires no edits.
 - Object properties:
     - `title` *(string)*: The reference title to be used in the info box
     - `authors` *(array of strings)*: Relevant names/companies

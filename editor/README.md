@@ -60,7 +60,7 @@ Bundler users (Vite's `import.meta.glob`, webpack `require.context`) can skip th
 The consumer also needs to:
 
 1. Load `@alexguha/rplib-editor/styles.css` somewhere in the page (`<link>` or bundler).
-2. Provide an `#svg` element and a `#sidebar` container in the HTML — the editor mounts into these by id.
+2. Provide an `#svg` element and a `#sidebar` container holding an `#info` and a `#panels` child — the editor mounts into these by id. (`#info` is the description pane; `#panels` is the configurable panel region.)
 3. If running directly in the browser (no bundler), declare an importmap so bare specifiers resolve:
 
    ```html
@@ -93,8 +93,73 @@ Exactly one of `dataDir` or `data` is required.
 | `repoUrl` | string | no | URL the lower-left GitHub button links to. Omitted → button is rendered but inert. Reassign at runtime via `manager.setRepoUrl(url)`. |
 | `storage` | object | no | `{ getItem, setItem, removeItem }` adapter. Defaults to `localStorage` when available. |
 | `reporter` | object | no | `{ error, warn }` diagnostics sink. Defaults to `console`. |
+| `panels` | array | no | Ordered [panel definitions](#panels) rendered into the sidebar content region. Defaults to `[]` (empty region). **References is no longer built in** — supply a references panel to render it. |
 
 Returns a promise resolving to the `AppManager` instance.
+
+## Panels
+
+The sidebar content region (the box below `#info`) renders an ordered array of
+**panel** definitions you supply via `panels`. References is no longer special —
+it's just a panel keyed to the `references` property. Panels are built from
+[`@alexguha/rplib/panel`](../core/README.md#panels-alexguharplibpanel); each owns
+its display, its editor (in the component editor), and its data key.
+
+Omit `panels` (or pass `[]`) and the region is empty; errors and confirmation
+dialogs still work (they take over the region transiently).
+
+### Getting references back (canonical recipe)
+
+```js
+import { definePanel } from '@alexguha/rplib/panel';
+import { createEditor } from '@alexguha/rplib-editor';
+
+const referencesPanel = definePanel({
+  name: 'references',
+  title: 'References',
+  property: 'references',                 // → ctx.resolveProperty('references')
+  showWhen: (data) => !!data && Object.keys(data).length > 0,
+
+  // Editability: references is stored as an object keyed by title, so the
+  // component editor renders a list whose `title` field doubles as that key.
+  itemKey: 'title',
+  itemFields: { title: 'text', link: 'text', info: 'textarea', authors: 'list', refType: 'text' },
+
+  render(container, refs, ctx) {
+    const list = document.createElement('ul');
+    list.id = 'references-list';
+    Object.entries(refs).forEach(([title, ref]) => {
+      const a = document.createElement('a');
+      a.href = ref.link || '#';
+      a.target = '_blank';
+      a.textContent = title + (ref.refType ? ` (${ref.refType})` : '');
+      a.dataset.info =
+        (ref.title   ? `**Reference Name:** ${ref.title}\n\n` : '') +
+        (ref.info    ? `**Description:** ${ref.info}\n\n` : '') +
+        (ref.authors?.length ? `**Authors:**\n${ref.authors.map(x => `• ${x}`).join('\n')}\n\n` : '') +
+        (ref.refType ? `**Link type:** ${ref.refType}\n\n` : '');
+      ctx.attachHoverPreview(a);
+      const li = document.createElement('li'); li.appendChild(a);
+      list.appendChild(li);
+    });
+    container.appendChild(list);
+  },
+});
+
+const manager = await createEditor({ dataDir: './data', panels: [referencesPanel] });
+```
+
+The `references:` DSL data and your data files need no edits — the renderer just
+calls `ctx.resolveProperty('references')`. A panel that declares neither
+`itemFields` nor `renderEditor` is edited as raw JSON in the component editor.
+
+### Theming
+
+Panels without a `theme` use `PANEL_BACKGROUND` (`--panel-background-color`). A
+panel may declare `theme: { background: '<THEME_KEY>' }` to use a different key —
+the key must exist in every active theme palette (supply your own via the
+`themes` option). The sidebar content region is the host-supplied `#panels`
+element (a bare flex layout region); the card styling lives on `.rplib-panel`.
 
 ### Pre-aggregated `data` escape hatch
 

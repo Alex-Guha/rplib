@@ -3,7 +3,7 @@
     --text-default-color: #e0e0e0;
     --svg-background-color: #2a2a2a;
     --info-background-color: #2a2a2a;
-    --reference-background-color: #2a2a2a;
+    --panel-background-color: #2a2a2a;
 
     --shape-fill-color: #3a3a3a;
     --shape-stroke-color: #555;
@@ -239,7 +239,8 @@ body {
 }
 
 #info {
-    height: 70%;
+    flex: 1 1 auto;
+    min-height: 50%;
     display: flex;
     flex-direction: column;
     padding: 10px;
@@ -251,25 +252,50 @@ body {
     transition: all 0.3s ease;
 }
 
-#references {
-    height: 30%;
+/* The sidebar content region: a bare flex column that stacks one or more
+   panel slots. The box styling lives on `.rplib-panel` so multiple panels each
+   read as their own card. Sizes to content between a 30% floor (so a single
+   panel still fills a sensible box — see `.rplib-panel`) and a 50% cap, so
+   adding panels grows the region without ever shrinking #info below half. */
+#panels {
+    flex: 0 1 auto;
+    min-height: 30%;
+    max-height: 50%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+}
+
+/* A single panel slot (or a transient error takeover). Defaults to
+   PANEL_BACKGROUND; a panel can override the background via its `theme` key. */
+.rplib-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;
 
+    /* Grow to fill the region. A lone panel fills it entirely (matching the old
+       fixed-height references box); multiple panels share it by content size.
+       `min-height: 0` + `overflow-y` lets each panel scroll its own overflow. */
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+
     padding: 10px 10px 10px 15px;
-    background-color: var(--reference-background-color);
+    background-color: var(--panel-background-color);
     border-radius: 10px;
     transition: all 0.3s ease;
 }
 
-#references h3 {
+.rplib-panel h3 {
     color: var(--text-default-color);
     margin: 0;
     transition: all 0.3s ease;
 }
 
-#references-list {
+/* Generic list + link styling for panel content (e.g. a references list). Not
+   references-specific — any panel that renders a <ul>/<a> picks these up. */
+.rplib-panel ul {
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -281,13 +307,13 @@ body {
     padding: 0;
 }
 
-#references-list a {
+.rplib-panel a {
     color: var(--text-default-color);
     text-decoration: none;
     transition: all 0.3s ease;
 }
 
-#references-list a:hover {
+.rplib-panel a:hover {
     color: var(--link-color);
     text-decoration: underline;
     transition: all 0.3s ease;
