@@ -1,5 +1,5 @@
 ### Editing
-- When users want to move components inside components, auto create an empty point before the componet with no separation and move that, implicitly repositioning the component without requiring edits to it
+- When users want to move components that are inside the current component, auto create an empty point before the component with no separation and move that, implicitly repositioning the component without requiring edits to it
 - click-to-set-previous
 - `swapModules`-style content overrides on imported component references (and the per-item `class` field that enables them)
 

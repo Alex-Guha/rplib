@@ -242,6 +242,20 @@ function renderImportedSummary(manager) {
     wrap.appendChild(note);
 
     if (importerItem) {
+        // `class` is the one editable field on an otherwise read-only imported
+        // block. Naming it marks this reference as a swappable slot so an
+        // abstract that uses this component can override it (e.g. the parser
+        // reads `class` off a `{ component, class }` item, then matches it
+        // against the abstract's swapModules — see core/parser/parseIntermediateFormat.js).
+        wrap.appendChild(fieldRow('class', 'text', importerItem.class ?? '', (val) => {
+            const trimmed = val.trim();
+            patchItem(manager, { class: trimmed === '' ? null : trimmed });
+        }));
+        const hint = document.createElement('div');
+        hint.className = 'ce-hint';
+        hint.textContent = 'Naming this reference’s class lets an abstract swap it out (e.g. selfAttention: gqa).';
+        wrap.appendChild(hint);
+
         const remove = document.createElement('button');
         remove.textContent = 'Remove imported reference';
         remove.addEventListener('click', (e) => {

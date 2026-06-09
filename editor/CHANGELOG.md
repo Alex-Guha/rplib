@@ -5,6 +5,17 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 follows [SemVer](https://semver.org/) starting from `1.0.0`. The `0.x` series
 makes no API-stability guarantees.
 
+## [Unreleased]
+
+### Added
+
+- **Component editor: editable `class` on component references.** Targeting an
+  imported component reference now exposes an editable `class` field (the rest
+  of the block stays read-only). Naming a reference's class marks it as a
+  swappable slot so an abstract that uses the component can override it via
+  swapModules (e.g. `selfAttention: gqa`). No DSL or parser change — `class` was
+  already honored on `{ component, class }` items.
+
 ## [0.3.0]
 
 ### Changed (BREAKING)
