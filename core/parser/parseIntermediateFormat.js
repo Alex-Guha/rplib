@@ -115,6 +115,15 @@ function buildComponent(store, components, componentID, viewDetails, viewName, d
         if (item.component) {
             const componentClass = item.class;
 
+            // After unrolling, the ref's own key resolves to the unrolled
+            // content's tail, so later siblings can anchor `previous` (or
+            // `arrow.previous`) on the subcomponent as a whole.
+            const sizeBefore = Object.keys(viewDetails.content).length;
+            const mapRefTail = () => {
+                const keys = Object.keys(viewDetails.content);
+                if (keys.length > sizeBefore) idMap[itemID] = keys.at(-1);
+            };
+
             if (swapModules && componentClass) {
                 const swapComponent = swapModules[componentClass];
                 if (swapComponent) {
@@ -129,11 +138,13 @@ function buildComponent(store, components, componentID, viewDetails, viewName, d
                         componentChain,
                         swapComponent.at(1)?.content ?? null
                     );
+                    mapRefTail();
                     return;
                 }
             }
 
             buildComponent(store, components, item.component, viewDetails, viewName, defaults, componentChain, swapModules);
+            mapRefTail();
             return;
         }
 
@@ -229,7 +240,9 @@ function buildComponent(store, components, componentID, viewDetails, viewName, d
 //     been processed yet (subcomponents must be ordered by graph appearance).
 //   - Out-of-scope reference: raw id is not in this component's content at all,
 //     so it either typos or reaches into a nested subcomponent's internals
-//     (the head-stitch is the only legitimate cross-scope link).
+//     (the head-stitch and ref-key tail anchoring are the only legitimate
+//     cross-scope links — a `previous` naming a sibling `component:` ref
+//     resolves to that subcomponent's unrolled tail via idMap).
 function resolvePreviousRef(store, idMap, rawId, componentContent, componentID, itemID, field) {
     const resolved = idMap[rawId];
     if (resolved !== undefined) return resolved;

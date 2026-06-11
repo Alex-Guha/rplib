@@ -11,6 +11,7 @@ import {
     makeRemoveItemEntry,
     makeRenameItemEntry,
     makeUpdatePatchEntry,
+    applyPreviewPatches,
 } from "./mutate.js";
 import { mergeDefaults, LIB_DEFAULT_THEME } from "./defaults.js";
 
@@ -342,6 +343,29 @@ export default class RPCanvas {
         }
         this._applyMutation(entry);
     };
+
+    /**
+     * Transient variant of updateItem for high-frequency interactions (e.g.
+     * drag gestures). Applies the patches to the resolved view, reflows
+     * `previous`-chained descendants, and partial-renders WITHOUT recording on
+     * the edit-history stack or firing mutate hooks. Commit the gesture once
+     * at the end through updateItem / updateComponent — re-resolving the view
+     * overwrites whatever transient state the preview left behind.
+     * @param {string} viewName
+     * @param {Object<string, Object>} patches - Map of item id → patch. `null`
+     *   values delete keys, same semantics as updateItem.
+     */
+    previewItems = (viewName, patches) => {
+        const ids = applyPreviewPatches(this.store.views[viewName], patches, this.defaults?.SHAPE, this.reporter);
+        if (ids.length === 0) return;
+        this.invalidateLayout(viewName, ids);
+        if (viewName === this.store.currentView) this._renderCurrent(ids);
+    };
+
+    /**
+     * Single-item sugar for `previewItems`.
+     */
+    previewItem = (viewName, id, patch) => this.previewItems(viewName, { [id]: patch });
 
     /**
      * Insert a new item into a resolved view. Use `{ after: id }` or

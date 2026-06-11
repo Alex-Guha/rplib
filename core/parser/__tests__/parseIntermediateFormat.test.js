@@ -185,3 +185,75 @@ test('parseComponentView: cyclical reference is reported, not infinitely recurse
     parseComponentView(store, components, 'loop');
     assert.ok(calls.some((m) => /Cyclical/.test(m)), 'expected cyclical-ref error');
 });
+
+test('ref-key anchoring: previous (and arrow.previous) naming a sibling component ref resolves to its unrolled tail', () => {
+    clearViewStructures();
+    const warnings = [];
+    const store = makeStore({});
+    store.reporter = { error: () => {}, warn: (m) => warnings.push(m) };
+    const components = {
+        other: {
+            content: {
+                x: { shape: 'box' },
+                y: { shape: 'box', previous: 'x' },
+            },
+        },
+        comp: {
+            content: {
+                a: { shape: 'box' },
+                imp: { component: 'other' },
+                b: { shape: 'box', previous: 'imp', arrow: { previous: 'imp' } },
+            },
+        },
+    };
+    const view = parseComponentView(store, components, 'comp');
+    assert.deepEqual(Object.keys(view.content), ['comp_a', 'other_x', 'other_y', 'comp_b']);
+    assert.equal(view.content.comp_b.previous, 'other_y');
+    assert.equal(view.content.comp_b.arrow.previous, 'other_y');
+    assert.equal(warnings.length, 0);
+});
+
+test('ref-key anchoring: resolves through a swapped component to the swap target tail', () => {
+    clearViewStructures();
+    const components = {
+        orig: { content: { o: { shape: 'box' } } },
+        swapped: {
+            content: {
+                s1: { shape: 'box' },
+                s2: { shape: 'box', previous: 's1' },
+            },
+        },
+        comp: {
+            content: {
+                a: { shape: 'box' },
+                slot: { component: 'orig', class: 'mySlot' },
+                b: { shape: 'box', previous: 'slot' },
+            },
+        },
+    };
+    const abstractDefinitions = {
+        demo: { content: { comp: { content: { mySlot: ['swapped'] } } } },
+    };
+    const view = parseAbstractDefinition(makeStore(abstractDefinitions), components, 'demo');
+    assert.deepEqual(Object.keys(view.content), ['comp_a', 'swapped_s1', 'swapped_s2', 'comp_b']);
+    assert.equal(view.content.comp_b.previous, 'swapped_s2');
+});
+
+test('ref-key anchoring: a ref that unrolls nothing still warns on previous lookup', () => {
+    clearViewStructures();
+    const warnings = [];
+    const store = makeStore({});
+    store.reporter = { error: () => {}, warn: (m) => warnings.push(m) };
+    const components = {
+        comp: {
+            content: {
+                a: { shape: 'box' },
+                imp: { component: 'ghost' },
+                b: { shape: 'box', previous: 'imp' },
+            },
+        },
+    };
+    const view = parseComponentView(store, components, 'comp');
+    assert.equal(view.content.comp_b.previous, undefined);
+    assert.ok(warnings.some(m => /"imp"/.test(m)), 'expected unresolved-previous warning');
+});

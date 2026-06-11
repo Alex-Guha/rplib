@@ -30,3 +30,8 @@ export {
     parseDimensionToken,
     resolveItemDimensions,
 } from './resolveDimensions.js';
+
+export {
+    parseAbstractDefinition,
+    parseComponentView,
+} from './parseIntermediateFormat.js';

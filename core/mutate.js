@@ -29,6 +29,38 @@ export function inversePatch(target, patch) {
     return out;
 }
 
+// Resolve dimension token strings ("2h", "w/4", …) in a patch against `shape`,
+// returning a deep copy so the caller's patch object is never mutated. Shared
+// by makeUpdateItemEntry and applyPreviewPatches so recorded and transient
+// patches resolve to identical numbers. No-op without `shape`.
+export function resolvePatchDimensions(patch, shape) {
+    if (!shape) return patch;
+    const resolved = JSON.parse(JSON.stringify(patch));
+    resolveItemDimensions(resolved, shape);
+    return resolved;
+}
+
+// Apply transient (non-recording) patches to a resolved view's items in place.
+// `patches` maps item ids to per-item patches (null deletes a key, same as
+// applyPatch). Returns the ids that were actually patched so the caller can
+// invalidate/redraw just those. Backs RPCanvas.previewItems — kept here so the
+// no-history-entry behavior is unit-testable without the renderer.
+export function applyPreviewPatches(view, patches, shape, reporter) {
+    const content = view?.content;
+    if (!content) return [];
+    const ids = [];
+    for (const [id, patch] of Object.entries(patches)) {
+        const item = content[id];
+        if (!item) {
+            reporter?.warn(`previewItems: item "${id}" not found in view`);
+            continue;
+        }
+        applyPatch(item, resolvePatchDimensions(patch, shape));
+        ids.push(id);
+    }
+    return ids;
+}
+
 // Insert `[id]: item` into a content object at the given index, preserving the
 // insertion order of existing entries. Returns a new object — JS doesn't let us
 // reorder keys in place.
@@ -77,11 +109,7 @@ export function makeUpdateItemEntry(view, viewName, id, patch, shape) {
     // Resolve token strings ("2h", "w/4", …) against shape so cached resolved
     // views keep numbers — matches the parse-time pass in buildComponent. The
     // resolved patch is what we store, so undo capture and replay both see numbers.
-    let resolvedPatch = patch;
-    if (shape) {
-        resolvedPatch = JSON.parse(JSON.stringify(patch));
-        resolveItemDimensions(resolvedPatch, shape);
-    }
+    const resolvedPatch = resolvePatchDimensions(patch, shape);
     const prev = inversePatch(item, resolvedPatch);
     return {
         kind: 'updateItem',

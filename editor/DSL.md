@@ -118,7 +118,7 @@ Examples: `"2h"`, `"0.75w"`, `"-w/8"`, `"h + s + w/4"`, `"(h - w) / 2"`. Strings
 #### Declaration order is significant
 - Items are processed top-down. A `previous` reference must point at an item declared *earlier* in the same `content` block.
 - Forward references (pointing at a later sibling) emit a parser warning and the `previous` is left undefined.
-- A `previous` may also reference the implicit tail of an immediately-preceding component reference (see below), but may **not** reach into a referenced component's internals. The only legitimate cross-component link is the implicit head-stitch; out-of-scope `previous` values emit a parser warning.
+- A `previous` may also name the key of an earlier component reference (see below) — it resolves to that reference's unrolled **tail** (its last flattened item). It may **not** reach into a referenced component's internals; out-of-scope `previous` values emit a parser warning.
 - The same scope rules apply to `arrow.previous`.
 
 #### When a value is a reference:
@@ -127,7 +127,7 @@ Examples: `"2h"`, `"0.75w"`, `"-w/8"`, `"h + s + w/4"`, `"(h - w) / 2"`. Strings
     - `component` *(string)*: The id of the component to insert
     - `class` *(string)* (Optional): This allows the abstract definition to override the component reference by using the className specified here.
 - The key still needs to be unique, but isn't used.
-- Generally, the next item after this reference shouldn't have a `previous` set — its position will be inferred as the last item in the referenced component (the implicit head-stitch). If you do set `previous` on the post-reference item, it must resolve to either an earlier sibling in this `content` block or the prior component reference's tail. It cannot name an internal item of the referenced component; those ids aren't in scope here and an attempt to use them will produce a parser warning.
+- Generally, the next item after this reference shouldn't have a `previous` set — its position will be inferred as the last item in the referenced component (the implicit head-stitch). If you do set `previous` on the post-reference item, it must name either an earlier sibling in this `content` block or an earlier component reference's key (which resolves to that reference's unrolled tail). It cannot name an internal item of the referenced component; those ids aren't in scope here and an attempt to use them will produce a parser warning.
 - Ex: In the decoder component, there is: `attn: { component: 'mha', class: 'selfAttention' }`
     - This means the default attention mechanism to be drawn is the mha component
     - The abstract can use a different attention mechanism using `selfAttention: gqa` under the decoder

@@ -58,6 +58,8 @@ The consumer also needs to:
        "d3": "./node_modules/d3/.../d3.js",
        "katex": "./node_modules/katex/dist/katex.mjs",
        "@alexguha/rplib": "./node_modules/@alexguha/rplib/index.js",
+       "@alexguha/rplib/parser": "./node_modules/@alexguha/rplib/parser/index.js",
+       "@alexguha/rplib/panel": "./node_modules/@alexguha/rplib/panel.js",
        "@alexguha/rplib/": "./node_modules/@alexguha/rplib/",
        "@alexguha/rplib-viewer": "./node_modules/@alexguha/rplib-viewer/index.js",
        "@alexguha/rplib-viewer/": "./node_modules/@alexguha/rplib-viewer/"

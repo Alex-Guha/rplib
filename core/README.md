@@ -77,6 +77,7 @@ loadRootView(canvas, localStorage, /* fallback view name */ 'my_view');
 | `canvas.resolveProperty(id, prop)` | Resolve `prop` element → ancestor → current-view. `id === null` resolves the view-level value only. Backs the panel system's data path. |
 | `canvas.getItem(viewName, id)` | Read an item from a resolved view. Returns `null` if missing. |
 | `canvas.updateItem(viewName, id, patch)` | Shallow-merge patch into an item. `null` deletes a key. |
+| `canvas.previewItem(viewName, id, patch)` / `previewItems(viewName, {id: patch})` | Transient `updateItem`: reflows + partial-renders but records **no** edit-history entry and fires no hooks. For high-frequency gestures (drag); commit once at the end via `updateItem`/`updateComponent`. |
 | `canvas.addItem(viewName, id, item, {before?, after?})` | Insert an item; defaults to appending. |
 | `canvas.removeItem(viewName, id)` / `renameItem(viewName, oldId, newId)` | Remove / rename, rewriting `previous` refs on rename. |
 | `canvas.updateAbstract(name, patch)` / `updateComponent(name, patch)` | Patch authored sources; auto-invalidates cached views. |
@@ -196,6 +197,17 @@ patches yourself.
 A's own `previous`), changing B does not auto-invalidate A's arrow during
 partial redraw. Workaround: include A in your own changed-ids set, or call
 `canvas.refresh()` for a full redraw.
+
+### High-frequency gestures: `previewItem` / `previewItems`
+
+A drag interaction that called `updateItem` on every `mousemove` would flood
+the edit history and (for component-sourced views) re-resolve the world ~60×
+a second. `previewItem(viewName, id, patch)` is `updateItem` minus the
+recording: it patches the resolved view, reflows `previous`-chain descendants,
+and partial-renders — no history entry, no mutate hooks. `previewItems` takes
+an `{id: patch}` map and renders once for the whole set. Preview state is
+transient by design: commit the gesture exactly once at the end through
+`updateItem` / `updateComponent`, whose re-resolve/redraw overwrites it.
 
 ### With a custom `resolveView`
 

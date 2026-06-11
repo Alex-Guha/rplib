@@ -12,18 +12,56 @@ import { renderInfoPanel } from './render.js';
 import { highlightTarget } from './target.js';
 
 export function patchItem(manager, patch) {
-    const name = componentEditState.name;
     const target = componentEditState.target;
     if (!target) return;
+    patchItems(manager, { [target]: patch });
+}
+
+// Copy `item` with `patch` shallow-merged in; null/undefined/'' delete keys.
+function patchedItem(item, patch) {
+    const next = { ...item };
+    for (const [k, v] of Object.entries(patch)) {
+        if (v === null || v === undefined || v === '') delete next[k];
+        else next[k] = v;
+    }
+    return next;
+}
+
+// Multi-item variant of patchItem: applies several item patches as ONE
+// updateComponent call — and therefore one edit-history entry — so gestures
+// that touch multiple items (e.g. shift-drag child compensation) undo
+// atomically. `patches` maps content keys to per-item patches; unknown keys
+// are skipped.
+export function patchItems(manager, patches) {
+    const name = componentEditState.name;
     const canvas = manager.canvas;
     const def = canvas.components[name];
-    if (!def?.content?.[target]) return;
-    const nextItem = { ...def.content[target] };
-    for (const [k, v] of Object.entries(patch)) {
-        if (v === null || v === undefined || v === '') delete nextItem[k];
-        else nextItem[k] = v;
+    if (!def?.content) return;
+    const nextContent = { ...def.content };
+    let changed = false;
+    for (const [key, patch] of Object.entries(patches)) {
+        if (!nextContent[key]) continue;
+        nextContent[key] = patchedItem(nextContent[key], patch);
+        changed = true;
     }
-    const nextContent = { ...def.content, [target]: nextItem };
+    if (!changed) return;
+    canvas.updateComponent(name, { content: nextContent });
+}
+
+// Insert `item` under `newKey` immediately before `anchorKey`, optionally
+// patching other items in the same pass — all as ONE updateComponent call, so
+// a gesture that creates and positions (imported-group drag spawning its
+// anchor point, plus shift compensation) lands as a single atomic undo entry.
+export function insertItemBefore(manager, anchorKey, newKey, item, patches = {}) {
+    const name = componentEditState.name;
+    const canvas = manager.canvas;
+    const def = canvas.components[name];
+    if (!def?.content || !Object.hasOwn(def.content, anchorKey) || def.content[newKey]) return;
+    const nextContent = {};
+    for (const [k, v] of Object.entries(def.content)) {
+        if (k === anchorKey) nextContent[newKey] = item;
+        nextContent[k] = patches[k] ? patchedItem(v, patches[k]) : v;
+    }
     canvas.updateComponent(name, { content: nextContent });
 }
 

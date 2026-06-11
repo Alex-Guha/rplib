@@ -15,6 +15,7 @@ import { EDITING_VIEW, SEED_CONTENT } from './constants.js';
 import { uniqueComponentName, setComponentEditTarget } from './helpers.js';
 import { handleElementClick, highlightTarget } from './target.js';
 import { renderInfoPanel, resetAdvancedMode } from './render.js';
+import { enableDragEditing, disableDragEditing } from './drag.js';
 
 export function enterComponentMode(manager) {
     if (componentEditState.active) return;
@@ -89,6 +90,7 @@ export function enterComponentMode(manager) {
         event.stopPropagation();
         handleElementClick({ currentTarget: event.target }, manager);
     });
+    enableDragEditing(manager);
 
     navigateTo(manager, EDITING_VIEW);
     // navigateTo's afterViewChange hook resets the sidebar, so apply our
@@ -128,6 +130,7 @@ export function exitComponentMode(manager) {
     delete canvas.store.abstractDefinitions[EDITING_VIEW];
     canvas.invalidateView(EDITING_VIEW);
     d3.select('#content').on('click.componentEditor', null);
+    disableDragEditing();
     d3.selectAll('.component-edit-target, .component-edit-target-group').classed('component-edit-target component-edit-target-group', false);
 
     setSidebarState(manager, null);

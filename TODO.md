@@ -1,11 +1,5 @@
 ### Editing
-- When users want to move components that are inside the current component, auto create an empty point before the component with no separation and move that, implicitly repositioning the component without requiring edits to it
 - click-to-set-previous
-- `swapModules`-style content overrides on imported component references (and the per-item `class` field that enables them)
-
-#### Drag and drop editing
-- make it possible to click and drag an element, and have all subsequent elements in the graph move with it
-- if also holding shift, only move the selected element
 
 
 ### Comparison

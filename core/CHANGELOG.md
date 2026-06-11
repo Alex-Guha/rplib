@@ -5,6 +5,32 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 follows [SemVer](https://semver.org/) starting from `1.0.0`. The `0.x` series
 makes no API-stability guarantees.
 
+## [Unreleased]
+
+### Added
+
+- `canvas.previewItem(viewName, id, patch)` / `canvas.previewItems(viewName, {id: patch})` —
+  transient, non-recording variant of `updateItem` for high-frequency
+  interactions (drag gestures). Patches the resolved view, reflows
+  `previous`-chain descendants, and partial-renders without pushing an
+  edit-history entry or firing mutate hooks; commit once at the end via
+  `updateItem` / `updateComponent`.
+- `resolvePatchDimensions(patch, shape)` and `applyPreviewPatches(view, patches, shape, reporter)`
+  exported from `@alexguha/rplib/mutate` — the pure surface behind the above.
+  `makeUpdateItemEntry` now shares the same dimension-resolve step.
+- `parseAbstractDefinition` and `parseComponentView` exported from
+  `@alexguha/rplib/parser` (previously only reachable through the default
+  resolver), for consumers that wrap the bundled DSL in a custom `resolveView`.
+
+### Fixed
+
+- **Parser: `previous` naming a sibling `component:` reference now resolves to
+  that reference's unrolled tail** (its last flattened item), as DSL.md already
+  documented. Previously the ref key never entered the parser's id map, so the
+  reference warned and was dropped — an item anchored on an imported component
+  rendered at the origin and didn't follow the group. Applies to `arrow.previous`
+  and swapped (`class`/swapModules) references too.
+
 ## [0.3.0]
 
 ### Added

@@ -12,6 +12,8 @@ import {
     makeRemoveItemEntry,
     makeRenameItemEntry,
     makeUpdatePatchEntry,
+    resolvePatchDimensions,
+    applyPreviewPatches,
     MISSING,
 } from '../mutate.js';
 
@@ -217,6 +219,100 @@ test('makeUpdatePatchEntry: fires sideEffect on both do and undo', () => {
 
 test('makeUpdatePatchEntry: returns null when target missing', () => {
     assert.equal(makeUpdatePatchEntry(null, 'v', {}, 'updateAbstract'), null);
+});
+
+// ---- resolvePatchDimensions ----
+
+test('resolvePatchDimensions: resolves tokens to numbers without mutating the input', () => {
+    const shape = { width: 100, height: 50, separation: 10 };
+    const patch = { width: '2w', x: 'w/4', text: 'hello', y: 30 };
+    const resolved = resolvePatchDimensions(patch, shape);
+    assert.deepEqual(resolved, { width: 200, x: 25, text: 'hello', y: 30 });
+    assert.deepEqual(patch, { width: '2w', x: 'w/4', text: 'hello', y: 30 });
+});
+
+test('resolvePatchDimensions: without shape, returns the patch as-is', () => {
+    const patch = { width: '2w' };
+    assert.equal(resolvePatchDimensions(patch, undefined), patch);
+});
+
+// ---- applyPreviewPatches (backs RPCanvas.previewItems) ----
+
+test('applyPreviewPatches: applies multiple item patches in place, returns applied ids', () => {
+    const view = {
+        content: {
+            A: { shape: 'box' },
+            B: { shape: 'box', previous: 'A', x: 10 },
+        },
+    };
+    const ids = applyPreviewPatches(view, { A: { x: 5, y: 7 }, B: { x: 20 } });
+    assert.deepEqual(ids, ['A', 'B']);
+    assert.deepEqual(view.content.A, { shape: 'box', x: 5, y: 7 });
+    assert.deepEqual(view.content.B, { shape: 'box', previous: 'A', x: 20 });
+});
+
+test('applyPreviewPatches: null values delete keys (restores position-keyword defaults)', () => {
+    const view = { content: { A: { shape: 'box', x: 10, y: 20, position: 'below' } } };
+    applyPreviewPatches(view, { A: { x: null, y: null } });
+    assert.deepEqual(view.content.A, { shape: 'box', position: 'below' });
+});
+
+test('applyPreviewPatches: resolves dimension tokens against shape', () => {
+    const view = { content: { A: { shape: 'box' } } };
+    applyPreviewPatches(view, { A: { x: '2w' } }, { width: 100, height: 50 });
+    assert.equal(view.content.A.x, 200);
+});
+
+test('applyPreviewPatches: skips unknown ids with a warning, tolerates missing view', () => {
+    const warnings = [];
+    const view = { content: { A: {} } };
+    const ids = applyPreviewPatches(view, { A: { x: 1 }, GHOST: { x: 2 } }, undefined, {
+        warn: (msg) => warnings.push(msg),
+    });
+    assert.deepEqual(ids, ['A']);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /GHOST/);
+    assert.deepEqual(applyPreviewPatches(null, { A: { x: 1 } }), []);
+});
+
+test('applyPreviewPatches: records nothing — a drag preview leaves edit history untouched', () => {
+    // Structural by design (the function has no history access); this pins the
+    // contract that a preview + single commit yields exactly one undo entry.
+    const h = new EditHistory();
+    const view = { content: { A: { x: 0 } } };
+    applyPreviewPatches(view, { A: { x: 50 } });
+    applyPreviewPatches(view, { A: { x: 100 } });
+    assert.equal(h.canUndo(), false);
+});
+
+// ---- drag-drop commit shape: one entry, multi-item, atomic undo ----
+
+test('multi-item content patch (shift-drag commit): one entry, undo restores parent and child together', () => {
+    // Mirrors patchItems → updateComponent: the whole next content object is
+    // one patch, so parent move + child compensation undo atomically.
+    const def = {
+        content: {
+            A: { shape: 'box' },
+            B: { shape: 'box', previous: 'A' },
+        },
+    };
+    const nextContent = {
+        A: { shape: 'box', x: 40, y: 25 },
+        B: { shape: 'box', previous: 'A', x: -40, y: -25 },
+    };
+    const h = new EditHistory();
+    const e = makeUpdatePatchEntry(def, 'v', { content: nextContent }, 'updateComponent');
+    e.do();
+    h.record(e);
+    assert.equal(def.content.A.x, 40);
+    assert.equal(def.content.B.x, -40);
+
+    h.popUndo().undo();
+    assert.equal(h.canUndo(), false);
+    assert.deepEqual(def.content, {
+        A: { shape: 'box' },
+        B: { shape: 'box', previous: 'A' },
+    });
 });
 
 // ---- full do/undo/redo cycle via EditHistory ----

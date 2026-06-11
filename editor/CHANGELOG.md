@@ -9,6 +9,33 @@ makes no API-stability guarantees.
 
 ### Added
 
+- **Component editor: drag-and-drop editing.** In component-edit mode, shapes
+  can be dragged to reposition them: because layout offsets are relative to
+  `previous`, every element chained to the dragged one follows automatically.
+  Holding **shift** moves only the dragged element — its direct children are
+  counter-offset so they (and their descendants) hold their absolute positions.
+  The gesture previews live through the non-recording `canvas.previewItems`
+  path and commits exactly once on drop (one undo entry, atomic for shift-drag's
+  multi-item patch; requires `@alexguha/rplib` with `previewItems`). Clicks
+  below a 4px movement threshold still select as before. Draggable shapes show
+  a `grab` cursor.
+- **Component editor: dragging imported component references.** A reference's
+  flattening ignores the importer item's x/y, so dragging an imported group is
+  expressed through an **anchor point**: a zero-size box inserted immediately
+  before the reference, which the group's head implicitly chains to. The point
+  is created lazily on the first drop (positioned so nothing jumps, still one
+  undo entry) and simply moved by later drags; shift-drag keeps items anchored
+  on the reference's tail in place. Relies on the core parser's new ref-key
+  tail anchoring. Items chained to a reference (e.g. added via the **+** button
+  while an imported group is targeted) now also render and follow correctly —
+  previously their `previous` silently failed to resolve and they sat
+  unanchored at the origin.
+
+  **Importmap consumers:** the editor now imports `@alexguha/rplib/layout`;
+  browser-no-bundler pages must add
+  `"@alexguha/rplib/layout": "./node_modules/@alexguha/rplib/layout.js"` to
+  their importmap (the trailing-slash fallback doesn't append `.js`). See the
+  README snippet.
 - **Component editor: editable `class` on component references.** Targeting an
   imported component reference now exposes an editable `class` field (the rest
   of the block stays read-only). Naming a reference's class marks it as a
