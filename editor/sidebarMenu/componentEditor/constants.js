@@ -3,6 +3,10 @@
 export const EDITING_VIEW = '__component_editor__';
 export const SEED_CONTENT = () => ({ box: { shape: 'box' } });
 
+// Drag snap increment, in canvas units; also the drag-feedback grid's cell
+// size (the default 100×200 shape spans 4×8 cells).
+export const GRID_SIZE = 25;
+
 export const KNOWN_SHAPES = ['box', 'triangle', 'trapezoid'];
 
 export const POSITION_OPTIONS = [

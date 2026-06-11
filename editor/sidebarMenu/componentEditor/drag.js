@@ -19,13 +19,21 @@
 // the point moves the whole group. The point is created lazily — the drop
 // that first drags a group inserts it (positioned so nothing jumps); later
 // drags recognize the 0×0 item in front of the ref and just move it.
+//
+// While a drag is live, a subtle grid fades in behind the canvas (and back out
+// on drop) and the dragged item snaps to it: the *offset from its predecessor*
+// is rounded to GRID_SIZE multiples, so committed x/y values come out as clean
+// grid increments. Holding alt suspends snapping (draw.io-style free drag).
+// The grid is phase-shifted to the predecessor's position so its lines mark
+// exactly where the item can land — see grid.js.
 
 import { componentEditState } from '../../utils/state.js';
-import { EDITING_VIEW } from './constants.js';
+import { EDITING_VIEW, GRID_SIZE } from './constants.js';
 import { setComponentEditTarget, uniqueContentKey } from './helpers.js';
 import { renderInfoPanel } from './render.js';
 import { highlightTarget } from './target.js';
 import { patchItems, insertItemBefore } from './mutations.js';
+import { showDragGrid, updateDragGrid, hideDragGrid, removeDragGrid } from './grid.js';
 import { computeItemLayout } from '@alexguha/rplib/layout';
 
 // Pointer must travel this many *screen* pixels before a mousedown becomes a
@@ -44,6 +52,16 @@ const POINT_LAYOUT = { x: 0, y: 0, width: 0, height: 0 };
 export function screenDeltaToCanvas(dxScreen, dyScreen, k) {
     const scale = k || 1;
     return { dx: dxScreen / scale, dy: dyScreen / scale };
+}
+
+// Adjust a drag delta so the dragged item's offset from its predecessor
+// (base + delta) lands on the nearest grid multiple. Snapping the *offset*
+// rather than the absolute position is what makes the committed x/y values
+// clean grid increments; the drawn grid is phase-shifted by the predecessor's
+// position (session.origin) so the two agree visually.
+export function snapDelta(session, dx, dy, gridSize = GRID_SIZE) {
+    const snap = (base, d) => Math.round((base + d) / gridSize) * gridSize - base;
+    return { dx: snap(session.base.x, dx), dy: snap(session.base.y, dy) };
 }
 
 // Direct def-level children of any of `parentKeys` — the set a shift-drag
@@ -78,11 +96,16 @@ function collectDefChildren(def, viewContent, layouts, prefix, parentKeys) {
 // Materialize an item's current effective offset from cached layouts: its
 // absolute position minus its predecessor's (the exact inverse of
 // computeItemLayout's `x = px + offset`), so items positioned purely by
-// `position` keywords drag without a first-move jump.
+// `position` keywords drag without a first-move jump. Also reports the
+// predecessor's absolute position (`origin`) — the snap grid's anchor.
 function materializeBase(item, layout, layouts) {
     const prevLayout = item.previous ? layouts[item.previous] : null;
     if (item.previous && !prevLayout) return null;
-    return { x: layout.x - (prevLayout?.x ?? 0), y: layout.y - (prevLayout?.y ?? 0) };
+    const origin = { x: prevLayout?.x ?? 0, y: prevLayout?.y ?? 0 };
+    return {
+        base: { x: layout.x - origin.x, y: layout.y - origin.y },
+        origin,
+    };
 }
 
 // Snapshot everything the move/up handlers need at mousedown time, for a
@@ -102,14 +125,14 @@ export function buildDragSession(canvas, componentName, renderedId) {
     const item = viewContent[renderedId];
     const layout = layouts[renderedId];
     if (!item || !layout) return null;
-    const base = materializeBase(item, layout, layouts);
-    if (!base) return null;
+    const measured = materializeBase(item, layout, layouts);
+    if (!measured) return null;
 
     return {
         mode: 'native',
         key,
         renderedId,
-        base,
+        ...measured,
         children: collectDefChildren(def, viewContent, layouts, prefix, [key]),
     };
 }
@@ -147,8 +170,8 @@ export function buildImportedDragSession(canvas, componentName, renderedId) {
     const headItem = viewContent[headId];
     const headLayout = layouts[headId];
     if (!headItem || !headLayout) return null;
-    const base = materializeBase(headItem, headLayout, layouts);
-    if (!base) return null;
+    const headMeasured = materializeBase(headItem, headLayout, layouts);
+    if (!headMeasured) return null;
 
     const defKeys = Object.keys(def.content);
     const prevDefKey = defKeys[defKeys.indexOf(refKey) - 1] ?? null;
@@ -169,9 +192,9 @@ export function buildImportedDragSession(canvas, componentName, renderedId) {
         const pointItem = viewContent[pointRenderedId];
         const pointLayout = layouts[pointRenderedId];
         if (!pointItem || !pointLayout) return null;
-        const pointBase = materializeBase(pointItem, pointLayout, layouts);
-        if (!pointBase) return null;
-        return { ...shared, mode: 'point', key: prevDefKey, renderedId: pointRenderedId, base: pointBase };
+        const pointMeasured = materializeBase(pointItem, pointLayout, layouts);
+        if (!pointMeasured) return null;
+        return { ...shared, mode: 'point', key: prevDefKey, renderedId: pointRenderedId, ...pointMeasured };
     }
 
     // The head's offset from the future point. Measured with `previous` forced
@@ -182,7 +205,7 @@ export function buildImportedDragSession(canvas, componentName, renderedId) {
         ...shared,
         mode: 'create-point',
         renderedId: headId,
-        base,
+        ...headMeasured,
         prevDefKey,
         pointKey: uniqueContentKey(def.content, `${refKey}_point`),
         headOffset: { x: headOffset.x, y: headOffset.y },
@@ -274,6 +297,7 @@ export function disableDragEditing() {
     d3.select('#content')
         .on('mousedown.componentEditorDrag', null)
         .on('mouseover.componentEditorDrag', null);
+    removeDragGrid();
 }
 
 // Select the dragged element the way a click would, so the sidebar form and
@@ -302,7 +326,10 @@ function startGesture(manager, session, downEvent) {
 
     const currentDelta = (event) => {
         const k = d3.zoomTransform(canvas.svgDOM.node()).k;
-        return screenDeltaToCanvas(event.clientX - startX, event.clientY - startY, k);
+        const d = screenDeltaToCanvas(event.clientX - startX, event.clientY - startY, k);
+        // Snap to the grid unless alt suspends it (read per-event, so toggling
+        // alt mid-gesture takes effect on the next move — same as shift).
+        return event.altKey ? d : snapDelta(session, d.dx, d.dy);
     };
 
     // Coalesce mousemove bursts to one preview per animation frame. In
@@ -311,6 +338,9 @@ function startGesture(manager, session, downEvent) {
     const applyPreview = () => {
         frame = null;
         if (!lastMove || !componentEditState.active) return;
+        // Re-assert the grid's transform each frame so a mid-drag wheel zoom
+        // can't leave it out of sync with #content.
+        updateDragGrid(canvas, session.origin);
         const { dx, dy } = currentDelta(lastMove);
         canvas.previewItems(EDITING_VIEW, computeDragPatches(session, dx, dy, { solo: lastMove.shiftKey }));
         // The partial render rebuilt the dragged shapes' DOM; re-assert the
@@ -323,6 +353,7 @@ function startGesture(manager, session, downEvent) {
             if (Math.hypot(event.clientX - startX, event.clientY - startY) < DRAG_THRESHOLD_PX) return;
             dragging = true;
             document.body.style.cursor = 'grabbing';
+            showDragGrid(canvas, session.origin);
             selectDragTarget(manager, session);
         }
         event.preventDefault();
@@ -339,6 +370,7 @@ function startGesture(manager, session, downEvent) {
             frame = null;
         }
         document.body.style.cursor = '';
+        hideDragGrid(canvas);
         suppressNextClick();
         if (!componentEditState.active) return;
         // Commit once through the recording component-source path: one undo

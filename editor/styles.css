@@ -663,6 +663,23 @@ textarea {
     opacity: 0.75;
 }
 
+/* Snap grid shown while a component-editor drag is live. Fades in when the
+   gesture starts and back out on drop; pointer-events off so it never eats
+   the drag's own mouse events or the zoom behavior's. */
+.component-editor-grid {
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.component-editor-grid.visible {
+    opacity: 0.4;
+}
+
+.component-editor-grid path {
+    stroke: var(--shape-stroke-color);
+}
+
 /* Component editor */
 .component-editor {
     display: flex;

@@ -5,8 +5,9 @@ import {
     screenDeltaToCanvas,
     buildDragSession,
     computeDragPatches,
+    snapDelta,
 } from '../sidebarMenu/componentEditor/drag.js';
-import { EDITING_VIEW } from '../sidebarMenu/componentEditor/constants.js';
+import { EDITING_VIEW, GRID_SIZE } from '../sidebarMenu/componentEditor/constants.js';
 import { computeItemLayout } from '@alexguha/rplib/layout';
 
 // The interaction layer (mousedown/move/up, rAF throttle, DOM) is exercised in
@@ -88,6 +89,12 @@ test('buildDragSession: collects direct children with relative offsets and autho
     ]);
 });
 
+test('buildDragSession: origin is the predecessor\'s absolute position (grid anchor)', () => {
+    // c's predecessor b sits at (0, 75); root a anchors at the canvas origin.
+    assert.deepEqual(buildDragSession(stubCanvas(), 'comp', 'comp_c').origin, { x: 0, y: 75 });
+    assert.deepEqual(buildDragSession(stubCanvas(), 'comp', 'comp_a').origin, { x: 0, y: 0 });
+});
+
 test('buildDragSession: rejects imported refs, unknown ids, and uncached layouts', () => {
     const canvas = stubCanvas();
     assert.equal(buildDragSession(canvas, 'comp', 'comp_imp'), null);
@@ -131,6 +138,26 @@ test('commit, shift drag: children compensated under def keys, all rounded', () 
         c: { x: -5, y: 27 },
         d: { x: 115, y: 20 },
     });
+});
+
+// ---- snapDelta ----
+
+test('snapDelta: adjusts the delta so base + delta lands on the nearest grid multiple', () => {
+    // b's base is (0, 75) — already grid-aligned, so deltas round directly.
+    assert.deepEqual(snapDelta(session(), 30, -7, 25), { dx: 25, dy: 0 });
+    assert.deepEqual(snapDelta(session(), -13, 38, 25), { dx: -25, dy: 50 });
+});
+
+test('snapDelta: a non-aligned base snaps onto the grid, not by grid steps from itself', () => {
+    const s = { base: { x: 5, y: 7 } };
+    const { dx, dy } = snapDelta(s, 30, 10, 25);
+    assert.deepEqual([s.base.x + dx, s.base.y + dy], [25, 25]);
+});
+
+test('snapDelta: defaults to GRID_SIZE', () => {
+    const s = { base: { x: 0, y: 0 } };
+    const { dx } = snapDelta(s, GRID_SIZE * 1.6, 0);
+    assert.equal(dx, GRID_SIZE * 2);
 });
 
 // ---- end-to-end through real layout math ----

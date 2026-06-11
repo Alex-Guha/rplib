@@ -36,6 +36,15 @@ makes no API-stability guarantees.
   `"@alexguha/rplib/layout": "./node_modules/@alexguha/rplib/layout.js"` to
   their importmap (the trailing-slash fallback doesn't append `.js`). See the
   README snippet.
+- **Component editor: snap-to-grid with drag-feedback grid.** While a drag
+  gesture is live, a subtle grid fades in behind the canvas and back out on
+  drop. The dragged item snaps to it: its offset from its predecessor is
+  rounded to the nearest 25-unit increment (`GRID_SIZE`), so committed x/y
+  values come out as clean multiples. Holding **alt** suspends snapping for
+  free positioning (draw.io-style), toggleable mid-gesture like shift. The
+  grid is phase-aligned to the predecessor's position — its lines mark exactly
+  where the dragged item can land — and tracks zoom/pan, staying one screen
+  pixel wide at any scale.
 - **Component editor: editable `class` on component references.** Targeting an
   imported component reference now exposes an editable `class` field (the rest
   of the block stays read-only). Naming a reference's class marks it as a
