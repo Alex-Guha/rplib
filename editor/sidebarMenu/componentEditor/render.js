@@ -303,7 +303,8 @@ function renderItemLevelForm(manager) {
     wrap.appendChild(selectRow('position', POSITION_OPTIONS, item.position ?? '', (val) => {
         patchItem(manager, { position: val === '' ? null : val });
     }, 'right'));
-    wrap.appendChild(renderPreviousRow(manager, item));
+    wrap.appendChild(previousPickRow(manager, item.previous ?? null,
+        (val) => patchItem(manager, { previous: val })));
     if (advancedMode) {
         wrap.appendChild(pairRow(
             shapeNumberRow('x', item.x, (val) => patchItem(manager, { x: val })),
@@ -346,11 +347,14 @@ function renderItemLevelForm(manager) {
     return wrap;
 }
 
-// The "previous" row sets the layout-chain predecessor by clicking: the button
-// arms a pick (see target.js), and the next canvas click on another item —
-// native or imported — becomes this item's `previous`. Arming only updates
-// this row in place; a full renderInfoPanel would immediately disarm it.
-function renderPreviousRow(manager, item) {
+// A "previous" row sets a predecessor reference by clicking: the button arms a
+// pick (see target.js), and the next canvas click on another item — native or
+// imported — commits its content key through `onCommit`. Shared by the item
+// form (layout-chain previous) and the arrow editors (arrow source), which
+// only differ in where the value is written: `onCommit` receives the picked
+// key, or null when the × button clears the field. Arming only updates this
+// row in place; a full renderInfoPanel would immediately disarm it.
+function previousPickRow(manager, currentPrevious, onCommit) {
     const row = document.createElement('div');
     row.className = 'ce-row';
 
@@ -361,27 +365,29 @@ function renderPreviousRow(manager, item) {
 
     const pick = document.createElement('button');
     pick.className = 'ce-pick-btn';
-    pick.textContent = item.previous ?? 'none';
+    pick.textContent = currentPrevious ?? 'none';
     pick.title = 'Click, then pick an item on the canvas to set as previous (only items declared earlier in the component are allowed)';
     pick.addEventListener('click', (e) => {
         e.stopPropagation();
+        // While any previous-row is armed, a pick-button click just cancels —
+        // including this row's own (toggle off).
         if (componentEditState.pickingPrevious) {
             cancelPickPrevious(manager);
             return;
         }
-        startPickPrevious();
+        startPickPrevious({ currentPrevious, onPick: onCommit });
         pick.textContent = 'click an item on the canvas…';
         pick.classList.add('ce-picking-active');
     });
     row.appendChild(pick);
 
-    if (item.previous) {
+    if (currentPrevious) {
         const clear = document.createElement('button');
         clear.textContent = '×';
         clear.title = 'Clear previous';
         clear.addEventListener('click', (e) => {
             e.stopPropagation();
-            patchItem(manager, { previous: null });
+            onCommit(null);
         });
         row.appendChild(clear);
     }
@@ -493,7 +499,7 @@ function renderArrowEntry(manager, key, entry, idx, entries, commit) {
 
         const update = makeEntryUpdater(entries, idx, entry, commit);
 
-        wrap.appendChild(fieldRow('previous', 'text', entry.previous ?? '',
+        wrap.appendChild(previousPickRow(manager, entry.previous ?? null,
             (val) => update('previous', val)));
         wrap.appendChild(renderSegmentEntries(manager, key, entry.segments,
             (next) => update('segments', next, { isEmpty: (v) => !(v && v.length) })));
@@ -530,7 +536,7 @@ function renderArrowEntry(manager, key, entry, idx, entries, commit) {
 
     const update = makeEntryUpdater(entries, idx, entry, commit);
 
-    wrap.appendChild(fieldRow('previous', 'text', entry.previous ?? '',
+    wrap.appendChild(previousPickRow(manager, entry.previous ?? null,
         (val) => update('previous', val)));
     wrap.appendChild(selectRow('direction', ARROW_DIRECTIONS, entry.direction ?? '',
         (val) => update('direction', val), 'right'));

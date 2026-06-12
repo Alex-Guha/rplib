@@ -11,7 +11,7 @@ Add the ability to compare two abstracts visually (highlighting the differences 
 ## Future
 
 ### Arrows
-- rewrite to allow for multiple previous elements and thus multiple arrows
+- allow for multiple previous elements and thus multiple arrows
 - Enforce a min arrow size based on text bbox, and propogate to item arrangement
   - Draw text, get bbox, delete text, adjust arrow end position, redraw text
   - Return out the difference in x (arrow.width - item.x) and y to adjust the item position (drawArrow would need to be called before drawing the shape)

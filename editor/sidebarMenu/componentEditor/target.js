@@ -1,7 +1,6 @@
 import { componentEditState } from '../../utils/state.js';
 import { setComponentEditTarget, validatePreviousPick } from './helpers.js';
 import { renderInfoPanel } from './render.js';
-import { patchItem } from './mutations.js';
 
 export function handleElementClick(event, manager) {
     const rawId = event.currentTarget.getAttribute('id');
@@ -48,16 +47,23 @@ export function handleElementClick(event, manager) {
 
 // --- click-to-set-previous -----------------------------------------------------
 //
-// Armed from the item form's "previous" row (render.js). While armed, the next
-// canvas click sets the current target's `previous` instead of re-targeting.
-// Any other action cancels: every full panel re-render does (form edits,
-// mutations, undo/redo, background clicks, target changes — they all funnel
-// through renderInfoPanel, which calls cancelPickPrevious), as does a drag
-// gesture starting (drag.js). Canvas pan/zoom touches none of those paths, so
-// it leaves the pick armed.
+// Armed from a "previous" row (render.js) — the item form's layout-chain field
+// or an arrow entry's source field. While armed, the next canvas click commits
+// the picked content key through the arming row's callback instead of
+// re-targeting. Any other action cancels: every full panel re-render does
+// (form edits, mutations, undo/redo, background clicks, target changes — they
+// all funnel through renderInfoPanel, which calls cancelPickPrevious), as does
+// a drag gesture starting (drag.js). Canvas pan/zoom touches none of those
+// paths, so it leaves the pick armed.
 
-export function startPickPrevious() {
+// The armed pick's request: { onPick(contentKey), currentPrevious }. Module-
+// local (not on componentEditState) because it's a closure over the arming
+// row's commit path, only meaningful while pickingPrevious is true.
+let pickRequest = null;
+
+export function startPickPrevious(request) {
     componentEditState.pickingPrevious = true;
+    pickRequest = request;
     // Cursor affordance — see the #content.ce-picking rule in styles.css.
     d3.select('#content').classed('ce-picking', true);
 }
@@ -65,6 +71,7 @@ export function startPickPrevious() {
 export function cancelPickPrevious(manager, { rerender = true } = {}) {
     if (!componentEditState.pickingPrevious) return;
     componentEditState.pickingPrevious = false;
+    pickRequest = null;
     d3.select('#content').classed('ce-picking', false);
     // Restore the pick button from its armed state. Skipped when the caller is
     // renderInfoPanel itself (or is about to trigger a re-render anyway).
@@ -95,14 +102,20 @@ export function resolvePreviousPickKey(def, componentName, rawId) {
 function applyPreviousPick(manager, rawId) {
     const def = manager.canvas.components[componentEditState.name];
     const picked = resolvePreviousPickKey(def, componentEditState.name, rawId);
-    // Clicking the target itself, an unresolvable shape, or the current
+    const request = pickRequest;
+    // Clicking the target itself (self-reference — meaningless for layout and
+    // for an arrow's source alike), an unresolvable shape, or the row's current
     // previous is a no-op pick — just disarm and restore the button.
-    if (!picked
+    if (!request
+        || !picked
         || picked === componentEditState.target
-        || picked === def.content[componentEditState.target]?.previous) {
+        || picked === request.currentPrevious) {
         cancelPickPrevious(manager);
         return;
     }
+    // Arrow previous fields share the item's ordering rule: the parser resolves
+    // them against the same idMap, so both may only name items declared before
+    // the owning item (the current target).
     const err = validatePreviousPick(def, componentEditState.target, picked);
     if (err) {
         // Disarm (and restore the button) before the blocking alert.
@@ -111,8 +124,9 @@ function applyPreviousPick(manager, rawId) {
         return;
     }
     cancelPickPrevious(manager, { rerender: false });
-    // patchItem's afterMutate re-renders the panel and re-applies the highlight.
-    patchItem(manager, { previous: picked });
+    // Commits through patchItem one way or another, whose afterMutate
+    // re-renders the panel and re-applies the highlight.
+    request.onPick(picked);
 }
 
 export function highlightTarget() {

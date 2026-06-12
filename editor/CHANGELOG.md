@@ -20,7 +20,11 @@ makes no API-stability guarantees.
   a mutation, a background click — disarms the pick, while canvas pan/zoom
   leaves it armed. Picking an item declared *after* the target is rejected
   with an explanation (the parser only resolves backward `previous`
-  references). A `×` button next to the field clears `previous`.
+  references). A `×` button next to the field clears `previous`. The arrow
+  editors' `previous` fields (single- and multi-segment) use the same
+  click-to-pick row instead of a free-text input — arrow sources follow the
+  same declared-earlier rule, since the parser resolves them against the same
+  id map.
 
 - **Component editor: drag-and-drop editing.** In component-edit mode, shapes
   can be dragged to reposition them: because layout offsets are relative to
