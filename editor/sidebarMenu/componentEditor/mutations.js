@@ -6,6 +6,7 @@ import {
     clearPendingRename,
 } from '../../utils/storage.js';
 import { renameInContent } from '@alexguha/rplib/mutate';
+import { drawNavigation } from '../../core/navigation.js';
 import { EDITING_VIEW, SEED_CONTENT } from './constants.js';
 import { uniqueContentKey, setComponentEditTarget } from './helpers.js';
 import { renderInfoPanel } from './render.js';
@@ -144,38 +145,75 @@ export function resetToSeed(manager) {
     highlightTarget();
 }
 
+// Re-point the session at `choice` to edit it in place — no new component is
+// created. Only legal from the pristine seed: the unedited seed component is
+// dropped (the same cleanup exitComponentMode does), and isSeed flips false so
+// exiting keeps `choice` and the first real edit autosaves under its existing
+// name. Nothing persists until that first edit.
+export function editComponent(manager, choice) {
+    const canvas = manager.canvas;
+    if (!componentEditState.isSeed || !canvas.components[choice]) return;
+
+    delete canvas.components[componentEditState.name];
+    removeCustomComponent(componentEditState.name, manager.storage);
+
+    componentEditState.name = choice;
+    componentEditState.isSeed = false;
+
+    canvas.store.abstractDefinitions[EDITING_VIEW].content = { [choice]: {} };
+    canvas.invalidateView(EDITING_VIEW);
+    // Any seed-era history (e.g. a Reset, or an earlier Copy) targets the
+    // just-dropped component — undoing into it would resurrect the seed.
+    canvas.clearEditHistory();
+
+    const content = canvas.components[choice].content || {};
+    const firstKey = Object.keys(content)[0] ?? null;
+    setComponentEditTarget(firstKey, { isImported: !!content[firstKey]?.component });
+
+    canvas.refresh(EDITING_VIEW);
+    drawNavigation(manager);
+    renderInfoPanel(manager);
+    highlightTarget();
+}
+
+// Wholesale-clone `choice` into the current seed component, leaving the
+// original untouched. Stays flagged as seed so exiting — or picking another
+// starting point — before any further edit discards the copy.
+export function copyComponent(manager, choice) {
+    const canvas = manager.canvas;
+    if (!canvas.components[choice]) return;
+
+    const cloned = JSON.parse(JSON.stringify(canvas.components[choice]));
+    const patch = { ...cloned };
+    // Make sure to overwrite all current top-level keys; first compute deletes
+    const cur = canvas.components[componentEditState.name] || {};
+    for (const k of Object.keys(cur)) if (!(k in patch)) patch[k] = null;
+    canvas.updateComponent(componentEditState.name, patch);
+    const firstKey = Object.keys(cloned.content || {})[0] ?? null;
+    setComponentEditTarget(firstKey, { isImported: !!cloned.content?.[firstKey]?.component });
+    componentEditState.isSeed = true;
+    renderInfoPanel(manager);
+    highlightTarget();
+}
+
+// Insert a reference to `choice` after the current target (or at the end when
+// there is no target).
 export function importComponent(manager, choice) {
     const canvas = manager.canvas;
     if (!canvas.components[choice]) return;
 
-    if (componentEditState.isSeed) {
-        // Wholesale replace
-        const cloned = JSON.parse(JSON.stringify(canvas.components[choice]));
-        const patch = { ...cloned };
-        // Make sure to overwrite all current top-level keys; first compute deletes
-        const cur = canvas.components[componentEditState.name] || {};
-        for (const k of Object.keys(cur)) if (!(k in patch)) patch[k] = null;
-        canvas.updateComponent(componentEditState.name, patch);
-        const firstKey = Object.keys(cloned.content || {})[0];
-        setComponentEditTarget(firstKey ?? null);
-        componentEditState.isSeed = true;
-        renderInfoPanel(manager);
-        highlightTarget();
-    } else {
-        // Insert a reference after the current target
-        const def = canvas.components[componentEditState.name];
-        if (!def?.content) return;
-        const newId = uniqueContentKey(def.content, choice);
-        const next = {};
-        for (const [k, v] of Object.entries(def.content)) {
-            next[k] = v;
-            if (k === componentEditState.target) next[newId] = { component: choice };
-        }
-        if (!(componentEditState.target in def.content)) {
-            next[newId] = { component: choice };
-        }
-        canvas.updateComponent(componentEditState.name, { content: next });
+    const def = canvas.components[componentEditState.name];
+    if (!def?.content) return;
+    const newId = uniqueContentKey(def.content, choice);
+    const next = {};
+    for (const [k, v] of Object.entries(def.content)) {
+        next[k] = v;
+        if (k === componentEditState.target) next[newId] = { component: choice };
     }
+    if (!(componentEditState.target in def.content)) {
+        next[newId] = { component: choice };
+    }
+    canvas.updateComponent(componentEditState.name, { content: next });
 }
 
 export function renameComponent(manager, oldName, newName) {

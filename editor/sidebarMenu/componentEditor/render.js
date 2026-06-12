@@ -30,6 +30,8 @@ import {
     removeTarget,
     resetToSeed,
     importComponent,
+    editComponent,
+    copyComponent,
     renameComponent,
     renameItemKey,
     exportComponent,
@@ -156,10 +158,14 @@ function renderMetaRows(manager) {
     importResetRow.className = 'ce-row ce-meta';
 
     const hasNativeTarget = componentEditState.target && !componentEditState.targetIsImported;
-    const importLabel = componentEditState.isSeed
-        ? 'Import component'
-        : (hasNativeTarget ? 'Insert component' : 'Add component at end');
-    const importSelect = renderImportSelect(manager, importLabel);
+    // On the pristine seed the selects offer existing components as a starting
+    // point — edit one in place, or clone it into this new component. After
+    // the first edit the single select inserts a reference instead.
+    const firstSelect = componentEditState.isSeed
+        ? renderComponentSelect(manager, 'Edit component', editComponent)
+        : renderComponentSelect(manager,
+            hasNativeTarget ? 'Insert component' : 'Add component at end',
+            importComponent);
 
     const resetBtn = document.createElement('button');
     resetBtn.textContent = 'Reset';
@@ -170,11 +176,15 @@ function renderMetaRows(manager) {
         resetToSeed(manager);
     });
 
-    importResetRow.appendChild(importSelect);
+    importResetRow.appendChild(firstSelect);
     importResetRow.appendChild(resetBtn);
 
     const addRemoveRow = document.createElement('div');
     addRemoveRow.className = 'ce-row ce-meta';
+
+    if (componentEditState.isSeed) {
+        addRemoveRow.appendChild(renderComponentSelect(manager, 'Copy component', copyComponent));
+    }
 
     const addItemBtn = document.createElement('button');
     addItemBtn.textContent = hasNativeTarget ? 'Add item after target' : 'Add item at end';
@@ -879,7 +889,10 @@ function renderBottomButtons(manager) {
     return row;
 }
 
-function renderImportSelect(manager, label) {
+// A placeholder-labelled dropdown over every other component; picking one
+// calls `onChoice(manager, name)`. Backs the seed-mode Edit/Copy selects and
+// the post-seed insert-reference select.
+function renderComponentSelect(manager, label, onChoice) {
     const select = document.createElement('select');
     select.className = 'ce-import-select';
 
@@ -910,7 +923,7 @@ function renderImportSelect(manager, label) {
         e.stopPropagation();
         const choice = select.value;
         if (!choice) return;
-        importComponent(manager, choice);
+        onChoice(manager, choice);
     });
     return select;
 }
