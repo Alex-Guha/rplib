@@ -13,7 +13,7 @@ import {
 } from '../../utils/storage.js';
 import { EDITING_VIEW, SEED_CONTENT } from './constants.js';
 import { uniqueComponentName, setComponentEditTarget } from './helpers.js';
-import { handleElementClick, highlightTarget } from './target.js';
+import { handleElementClick, highlightTarget, cancelPickPrevious } from './target.js';
 import { renderInfoPanel, resetAdvancedMode } from './render.js';
 import { enableDragEditing, disableDragEditing } from './drag.js';
 
@@ -108,6 +108,9 @@ export function exitComponentMode(manager) {
     const canvas = manager.canvas;
 
     const restoreTo = componentEditState.previousRootView;
+    // Drop any armed previous-pick (clears the #content cursor class) before
+    // the rest of the teardown rebuilds the sidebar.
+    cancelPickPrevious(manager, { rerender: false });
     // Unedited seed: drop the orphan entry from canvas.components so the next
     // session doesn't see `new_component` as taken and bump the name to `_a`.
     if (componentEditState.isSeed && componentEditState.name) {

@@ -52,6 +52,17 @@ export function makeEntryUpdater(entries, idx, entry, commit) {
     };
 }
 
+// `previous` may only name an item declared *earlier* in the content block —
+// the parser drops forward references with a warning (resolvePreviousRef in
+// core/parser/parseIntermediateFormat.js), so the editor rejects them at pick
+// time. Returns an error message, or null when the pick is legal.
+export function validatePreviousPick(def, targetKey, pickedKey) {
+    const keys = Object.keys(def?.content ?? {});
+    if (keys.indexOf(pickedKey) > keys.indexOf(targetKey))
+        return `"${pickedKey}" is declared after "${targetKey}", so it can't be its previous — items must be ordered by graph appearance.`;
+    return null;
+}
+
 export function removeKey(obj, key) {
     const out = {};
     for (const [k, v] of Object.entries(obj)) {

@@ -1,10 +1,15 @@
 import { componentEditState } from '../../utils/state.js';
-import { setComponentEditTarget } from './helpers.js';
+import { setComponentEditTarget, validatePreviousPick } from './helpers.js';
 import { renderInfoPanel } from './render.js';
+import { patchItem } from './mutations.js';
 
 export function handleElementClick(event, manager) {
     const rawId = event.currentTarget.getAttribute('id');
     if (!rawId) return;
+    if (componentEditState.pickingPrevious) {
+        applyPreviousPick(manager, rawId);
+        return;
+    }
     // Items inside the resolved view are keyed off rendered ids like
     // `<componentName>_<contentKey>` (native) or `<importedName>_<contentKey>`
     // (flattened from a `component:` reference).
@@ -39,6 +44,75 @@ export function handleElementClick(event, manager) {
     componentEditState.importedGroupPrefix = importedComponentName;
     renderInfoPanel(manager);
     highlightTarget();
+}
+
+// --- click-to-set-previous -----------------------------------------------------
+//
+// Armed from the item form's "previous" row (render.js). While armed, the next
+// canvas click sets the current target's `previous` instead of re-targeting.
+// Any other action cancels: every full panel re-render does (form edits,
+// mutations, undo/redo, background clicks, target changes — they all funnel
+// through renderInfoPanel, which calls cancelPickPrevious), as does a drag
+// gesture starting (drag.js). Canvas pan/zoom touches none of those paths, so
+// it leaves the pick armed.
+
+export function startPickPrevious() {
+    componentEditState.pickingPrevious = true;
+    // Cursor affordance — see the #content.ce-picking rule in styles.css.
+    d3.select('#content').classed('ce-picking', true);
+}
+
+export function cancelPickPrevious(manager, { rerender = true } = {}) {
+    if (!componentEditState.pickingPrevious) return;
+    componentEditState.pickingPrevious = false;
+    d3.select('#content').classed('ce-picking', false);
+    // Restore the pick button from its armed state. Skipped when the caller is
+    // renderInfoPanel itself (or is about to trigger a re-render anyway).
+    if (rerender) renderInfoPanel(manager);
+}
+
+// Resolve a clicked shape's rendered id to the def content key a `previous`
+// reference can legally name: a native item's own key, or — for any shape
+// inside an imported group — the importer `component:` ref key. The parser
+// resolves a ref key to the unrolled group's tail; imported internals are out
+// of scope for `previous` (see core/parser resolvePreviousRef), so the ref key
+// is the only valid handle for the whole group. Returns null when the id maps
+// to neither. Exported for tests.
+export function resolvePreviousPickKey(def, componentName, rawId) {
+    if (!def?.content) return null;
+    const topSegment = rawId.split('.')[0];
+    const rootPrefix = `${componentName}_`;
+    if (topSegment.startsWith(rootPrefix)) {
+        const contentKey = topSegment.slice(rootPrefix.length);
+        if (Object.hasOwn(def.content, contentKey) && !def.content[contentKey].component)
+            return contentKey;
+    }
+    const importedComponentName = topSegment.split('_')[0];
+    return Object.entries(def.content)
+        .find(([, v]) => v?.component === importedComponentName)?.[0] ?? null;
+}
+
+function applyPreviousPick(manager, rawId) {
+    const def = manager.canvas.components[componentEditState.name];
+    const picked = resolvePreviousPickKey(def, componentEditState.name, rawId);
+    // Clicking the target itself, an unresolvable shape, or the current
+    // previous is a no-op pick — just disarm and restore the button.
+    if (!picked
+        || picked === componentEditState.target
+        || picked === def.content[componentEditState.target]?.previous) {
+        cancelPickPrevious(manager);
+        return;
+    }
+    const err = validatePreviousPick(def, componentEditState.target, picked);
+    if (err) {
+        // Disarm (and restore the button) before the blocking alert.
+        cancelPickPrevious(manager);
+        window.alert(err);
+        return;
+    }
+    cancelPickPrevious(manager, { rerender: false });
+    // patchItem's afterMutate re-renders the panel and re-applies the highlight.
+    patchItem(manager, { previous: picked });
 }
 
 export function highlightTarget() {

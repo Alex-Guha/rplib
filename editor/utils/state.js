@@ -12,6 +12,7 @@ export const componentEditState = {
     targetIsImported: false,    // true when clicked element belongs to an imported component reference
     targetElementId: null,      // raw rendered id (for highlight management)
     importedGroupPrefix: null,  // when target is imported, the component name to highlight as a group
+    pickingPrevious: false,     // armed click-to-set-previous pick (see componentEditor/target.js)
     previousRootView: null,     // view to restore on exit
     isSeed: true,               // tracks "pristine seed vs user-modified"
     pendingRenameFrom: null,    // see componentEditor.js rename flow

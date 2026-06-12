@@ -1,7 +1,3 @@
-### Editing
-- click-to-set-previous
-
-
 ### Comparison
 Add the ability to compare two abstracts visually (highlighting the differences between generations)
 

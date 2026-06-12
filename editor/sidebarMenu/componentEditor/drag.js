@@ -31,7 +31,7 @@ import { componentEditState } from '../../utils/state.js';
 import { EDITING_VIEW, GRID_SIZE } from './constants.js';
 import { setComponentEditTarget, uniqueContentKey } from './helpers.js';
 import { renderInfoPanel } from './render.js';
-import { highlightTarget } from './target.js';
+import { highlightTarget, cancelPickPrevious } from './target.js';
 import { patchItems, insertItemBefore } from './mutations.js';
 import { showDragGrid, updateDragGrid, hideDragGrid, removeDragGrid } from './grid.js';
 import { computeItemLayout } from '@alexguha/rplib/layout';
@@ -354,6 +354,10 @@ function startGesture(manager, session, downEvent) {
             dragging = true;
             document.body.style.cursor = 'grabbing';
             showDragGrid(canvas, session.origin);
+            // A drag is "another action" — disarm a pending previous-pick.
+            // Before selectDragTarget, whose early-return can skip the
+            // re-render that restores the pick button.
+            cancelPickPrevious(manager);
             selectDragTarget(manager, session);
         }
         event.preventDefault();

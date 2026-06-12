@@ -9,6 +9,19 @@ makes no API-stability guarantees.
 
 ### Added
 
+- **Component editor: click-to-set-previous.** The item form's `previous`
+  field is no longer a sibling dropdown — clicking it arms a pick, and the
+  next canvas click on another item sets it as the target's `previous`.
+  Clicking a native item picks that item; clicking any shape inside an
+  imported group picks the importer reference (the parser resolves a ref key
+  to the unrolled group's tail — imported internals aren't valid `previous`
+  targets). While armed, shapes show a crosshair and the button waits with
+  "click an item on the canvas…"; any other action — a form edit, a drag,
+  a mutation, a background click — disarms the pick, while canvas pan/zoom
+  leaves it armed. Picking an item declared *after* the target is rejected
+  with an explanation (the parser only resolves backward `previous`
+  references). A `×` button next to the field clears `previous`.
+
 - **Component editor: drag-and-drop editing.** In component-edit mode, shapes
   can be dragged to reposition them: because layout offsets are relative to
   `previous`, every element chained to the dragged one follows automatically.

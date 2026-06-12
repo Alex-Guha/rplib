@@ -34,7 +34,7 @@ import {
     renameItemKey,
     exportComponent,
 } from './mutations.js';
-import { highlightTarget } from './target.js';
+import { highlightTarget, startPickPrevious, cancelPickPrevious } from './target.js';
 
 // Per-session "advanced mode" flag — gates rarely-used numeric/styling fields.
 // Kept module-local because it's pure view state with no persistence need.
@@ -49,6 +49,10 @@ export function resetAdvancedMode() {
 const expandedNotes = new Set();
 
 export function renderInfoPanel(manager) {
+    // Every full re-render means some action other than canvas movement
+    // happened — that always disarms a pending click-to-set-previous pick
+    // (no-op when not armed; rerender:false because we're rebuilding anyway).
+    cancelPickPrevious(manager, { rerender: false });
     const info = document.getElementById('info');
     // Preserve scroll position across full re-renders. Both #info and
     // .component-editor are independently scrollable (styles.css:266, :641),
@@ -299,10 +303,7 @@ function renderItemLevelForm(manager) {
     wrap.appendChild(selectRow('position', POSITION_OPTIONS, item.position ?? '', (val) => {
         patchItem(manager, { position: val === '' ? null : val });
     }, 'right'));
-    const siblingIds = Object.keys(def.content || {}).filter(k => k !== componentEditState.target);
-    wrap.appendChild(selectRow('previous', ['', ...siblingIds], item.previous ?? '', (val) => {
-        patchItem(manager, { previous: val === '' ? null : val });
-    }, 'none'));
+    wrap.appendChild(renderPreviousRow(manager, item));
     if (advancedMode) {
         wrap.appendChild(pairRow(
             shapeNumberRow('x', item.x, (val) => patchItem(manager, { x: val })),
@@ -343,6 +344,49 @@ function renderItemLevelForm(manager) {
     wrap.appendChild(renderArrowEntries(manager, itemKey, item));
 
     return wrap;
+}
+
+// The "previous" row sets the layout-chain predecessor by clicking: the button
+// arms a pick (see target.js), and the next canvas click on another item —
+// native or imported — becomes this item's `previous`. Arming only updates
+// this row in place; a full renderInfoPanel would immediately disarm it.
+function renderPreviousRow(manager, item) {
+    const row = document.createElement('div');
+    row.className = 'ce-row';
+
+    const label = document.createElement('label');
+    label.className = 'ce-label';
+    label.textContent = 'previous';
+    row.appendChild(label);
+
+    const pick = document.createElement('button');
+    pick.className = 'ce-pick-btn';
+    pick.textContent = item.previous ?? 'none';
+    pick.title = 'Click, then pick an item on the canvas to set as previous (only items declared earlier in the component are allowed)';
+    pick.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (componentEditState.pickingPrevious) {
+            cancelPickPrevious(manager);
+            return;
+        }
+        startPickPrevious();
+        pick.textContent = 'click an item on the canvas…';
+        pick.classList.add('ce-picking-active');
+    });
+    row.appendChild(pick);
+
+    if (item.previous) {
+        const clear = document.createElement('button');
+        clear.textContent = '×';
+        clear.title = 'Clear previous';
+        clear.addEventListener('click', (e) => {
+            e.stopPropagation();
+            patchItem(manager, { previous: null });
+        });
+        row.appendChild(clear);
+    }
+
+    return row;
 }
 
 // Renders a "Text" subgroup that reads from a text array and writes back via

@@ -663,6 +663,14 @@ textarea {
     opacity: 0.75;
 }
 
+/* Click-to-set-previous pick mode: while armed, shapes show a crosshair so
+   the canvas reads as "pick a target." !important because the drag layer sets
+   an inline grab cursor on hover (drag.js mouseover). */
+#content.ce-picking rect,
+#content.ce-picking polygon {
+    cursor: crosshair !important;
+}
+
 /* Snap grid shown while a component-editor drag is live. Fades in when the
    gesture starts and back out on drop; pointer-events off so it never eats
    the drag's own mouse events or the zoom behavior's. */
@@ -911,6 +919,23 @@ textarea {
     background-color: var(--shape-fill-color);
     font-size: 0.85em;
     margin-bottom: 6px;
+}
+
+/* "previous" pick button: fills the row like an input, shows the current
+   value; the armed state borrows the target accent so it visibly waits for a
+   canvas click. */
+.component-editor .ce-pick-btn {
+    flex-grow: 1;
+    min-width: 0;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.component-editor .ce-pick-btn.ce-picking-active {
+    color: var(--component-edit-target-color);
+    outline: 1px solid var(--component-edit-target-color);
 }
 
 .component-editor .ce-radio {
