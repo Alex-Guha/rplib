@@ -31,6 +31,7 @@ test('screenDeltaToCanvas: missing/zero scale falls back to identity', () => {
 // Component 'comp': a (root) ← b ← {c (explicit x/y), d}; plus an imported ref.
 function stubCanvas() {
     return {
+        defaults: { SHAPE: { width: 100, height: 50, separation: 25 } },
         components: {
             comp: {
                 content: {
@@ -83,10 +84,18 @@ test('buildDragSession: root item with no previous gets absolute offsets', () =>
 
 test('buildDragSession: collects direct children with relative offsets and authored origins', () => {
     const session = buildDragSession(stubCanvas(), 'comp', 'comp_b');
+    // Both children default-position right of b: natural offset (sep + pw, 0).
     assert.deepEqual(session.children, [
-        { key: 'c', renderedId: 'comp_c', x: 5, y: 7, origX: 5, origY: 7 },
-        { key: 'd', renderedId: 'comp_d', x: 125, y: 0, origX: null, origY: null },
+        { key: 'c', renderedId: 'comp_c', x: 5, y: 7, natural: { x: 125, y: 0 }, origX: 5, origY: 7 },
+        { key: 'd', renderedId: 'comp_d', x: 125, y: 0, natural: { x: 125, y: 0 }, origX: null, origY: null },
     ]);
+});
+
+test('buildDragSession: natural offset is the no-explicit-x/y layout default', () => {
+    // b is positioned 'below' a → natural (0, sep + prev height) = (0, 75).
+    assert.deepEqual(buildDragSession(stubCanvas(), 'comp', 'comp_b').natural, { x: 0, y: 75 });
+    // c authored x/y, but its natural comes from the default 'right' rule.
+    assert.deepEqual(buildDragSession(stubCanvas(), 'comp', 'comp_c').natural, { x: 125, y: 0 });
 });
 
 test('buildDragSession: origin is the predecessor\'s absolute position (grid anchor)', () => {
@@ -137,6 +146,30 @@ test('commit, shift drag: children compensated under def keys, all rounded', () 
         b: { x: 10, y: 55 },
         c: { x: -5, y: 27 },
         d: { x: 115, y: 20 },
+    });
+});
+
+test('commit: a dimension dropped on its natural offset clears the entry (null)', () => {
+    // c sits at authored (5, 7); natural is (125, 0).
+    const s = buildDragSession(stubCanvas(), 'comp', 'comp_c');
+    // Both dimensions land on natural → both entries cleared.
+    assert.deepEqual(computeDragPatches(s, 120, -7, { forCommit: true }), {
+        c: { x: null, y: null },
+    });
+    // Only x lands on natural → y stays explicit.
+    assert.deepEqual(computeDragPatches(s, 120, 13, { forCommit: true }), {
+        c: { x: null, y: 20 },
+    });
+});
+
+test('commit, shift drag: compensated children also clear on their natural offsets', () => {
+    // Vertical-only solo drag of b: d's compensated x stays 125 (= natural) →
+    // cleared; b's own x stays 0 (= its natural) → cleared too.
+    const patches = computeDragPatches(session(), 0, -25, { solo: true, forCommit: true });
+    assert.deepEqual(patches, {
+        b: { x: null, y: 50 },
+        c: { x: 5, y: 32 },
+        d: { x: null, y: 25 },
     });
 });
 
@@ -191,6 +224,7 @@ test('plain drop: dragged element and its whole descendant chain move by the del
     };
     const before = layoutChain(content);
     const canvas = {
+        defaults: DEFAULTS,
         components: { comp: { content } },
         store: { views: { [EDITING_VIEW]: { content: { comp_a: content.a, comp_b: content.b, comp_c: content.c } } } },
         layouts: { [EDITING_VIEW]: { comp_a: before.a, comp_b: before.b, comp_c: before.c } },
@@ -216,6 +250,7 @@ test('shift drop: dragged element moves, descendants hold their absolute positio
     };
     const before = layoutChain(content);
     const canvas = {
+        defaults: DEFAULTS,
         components: { comp: { content } },
         store: {
             views: {
@@ -239,6 +274,36 @@ test('shift drop: dragged element moves, descendants hold their absolute positio
     // Only the direct child c is compensated; d follows c and therefore also stays put.
     assert.deepEqual([after.c.x, after.c.y], [before.c.x, before.c.y]);
     assert.deepEqual([after.d.x, after.d.y], [before.d.x, before.d.y]);
+});
+
+test('drop onto the natural position: explicit x/y entries are removed, layout unchanged', () => {
+    // b carries explicit offsets 40 right / 25 below its 'below' default spot.
+    const content = {
+        a: { shape: 'box' },
+        b: { shape: 'box', previous: 'a', position: 'below', x: 40, y: 100 },
+    };
+    const before = layoutChain(content);
+    const canvas = {
+        defaults: DEFAULTS,
+        components: { comp: { content } },
+        store: {
+            views: {
+                [EDITING_VIEW]: {
+                    content: { comp_a: content.a, comp_b: { ...content.b, previous: 'comp_a' } },
+                },
+            },
+        },
+        layouts: { [EDITING_VIEW]: { comp_a: before.a, comp_b: before.b } },
+    };
+
+    const s = buildDragSession(canvas, 'comp', 'comp_b');
+    // Drag exactly back onto the position-keyword default (0, sep + height).
+    const next = applyCommit(content, computeDragPatches(s, -40, -25, { forCommit: true }));
+
+    assert.equal('x' in next.b, false);
+    assert.equal('y' in next.b, false);
+    const after = layoutChain(next);
+    assert.deepEqual([after.b.x, after.b.y], [0, 75]);
 });
 
 // ===== imported component references (anchor-point drag) =====

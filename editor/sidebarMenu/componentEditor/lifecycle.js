@@ -83,12 +83,16 @@ export function enterComponentMode(manager) {
     };
     // Delegate clicks at the canvas level so every shape is targetable —
     // attachElementEventListeners only fires for items that author
-    // description/references, which a bare seed item does not.
+    // description/references, which a bare seed item does not. Text labels
+    // select too: their ids start with the owning item's rendered id, so they
+    // resolve like a click on the shape itself. KaTeX labels are HTML inside a
+    // <foreignObject> (the element carrying the id), and closest() crosses
+    // that boundary, so a click anywhere in the rendered math resolves to it.
     d3.select('#content').on('click.componentEditor', function (event) {
-        const tag = event.target?.tagName;
-        if (tag !== 'rect' && tag !== 'polygon') return;
+        const el = event.target?.closest?.('rect, polygon, text, foreignObject');
+        if (!el || !el.getAttribute('id')) return;
         event.stopPropagation();
-        handleElementClick({ currentTarget: event.target }, manager);
+        handleElementClick({ currentTarget: el }, manager);
     });
     enableDragEditing(manager);
 

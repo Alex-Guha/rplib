@@ -312,7 +312,7 @@ function renderItemLevelForm(manager) {
     wrap.appendChild(sectionSeparator('positioning'));
     wrap.appendChild(selectRow('position', POSITION_OPTIONS, item.position ?? '', (val) => {
         patchItem(manager, { position: val === '' ? null : val });
-    }, 'right'));
+    }, '(right)'));
     wrap.appendChild(previousPickRow(manager, item.previous ?? null,
         (val) => patchItem(manager, { previous: val })));
     if (advancedMode) {
@@ -362,9 +362,11 @@ function renderItemLevelForm(manager) {
 // imported — commits its content key through `onCommit`. Shared by the item
 // form (layout-chain previous) and the arrow editors (arrow source), which
 // only differ in where the value is written: `onCommit` receives the picked
-// key, or null when the × button clears the field. Arming only updates this
-// row in place; a full renderInfoPanel would immediately disarm it.
-function previousPickRow(manager, currentPrevious, onCommit) {
+// key, or null when the × button clears the field — and in `emptyLabel`,
+// which names the unset behavior (an item has no previous; an arrow inherits
+// the item's). Arming only updates this row in place; a full renderInfoPanel
+// would immediately disarm it.
+function previousPickRow(manager, currentPrevious, onCommit, emptyLabel = '(none)') {
     const row = document.createElement('div');
     row.className = 'ce-row';
 
@@ -375,7 +377,7 @@ function previousPickRow(manager, currentPrevious, onCommit) {
 
     const pick = document.createElement('button');
     pick.className = 'ce-pick-btn';
-    pick.textContent = currentPrevious ?? 'none';
+    pick.textContent = currentPrevious ?? emptyLabel;
     pick.title = 'Click, then pick an item on the canvas to set as previous (only items declared earlier in the component are allowed)';
     pick.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -439,7 +441,7 @@ function renderTextEntry(manager, key, entry, idx, entries, commit) {
 
     wrap.appendChild(fieldRow('text', 'text', entry.text ?? '', (val) => update('text', val)));
     wrap.appendChild(selectRow('position', TEXT_POSITIONS, entry.position ?? '',
-        (val) => update('position', val), 'top'));
+        (val) => update('position', val), '(top)'));
     if (advancedMode) {
         wrap.appendChild(pairRow(
             shapeNumberRow('xOffset', entry.xOffset, (val) => update('xOffset', val)),
@@ -547,18 +549,22 @@ function renderArrowEntry(manager, key, entry, idx, entries, commit) {
     const update = makeEntryUpdater(entries, idx, entry, commit);
 
     wrap.appendChild(previousPickRow(manager, entry.previous ?? null,
-        (val) => update('previous', val)));
+        (val) => update('previous', val), '(inherit)'));
     wrap.appendChild(selectRow('direction', ARROW_DIRECTIONS, entry.direction ?? '',
-        (val) => update('direction', val), 'right'));
+        (val) => update('direction', val), '(inferred)'));
     wrap.appendChild(renderTextEntries(manager, key, entry.text, (textVal) => update('text', textVal)));
     if (advancedMode) {
         wrap.appendChild(pairRow(
             shapeNumberRow('xOffset', entry.xOffset, (val) => update('xOffset', val)),
             shapeNumberRow('yOffset', entry.yOffset, (val) => update('yOffset', val)),
         ));
-        wrap.appendChild(plainNumberRow('extraLength', entry.extraLength,
+        wrap.appendChild(shapeNumberRow('extraLength', entry.extraLength,
             (val) => update('extraLength', val)));
         wrap.appendChild(checkboxRow('noHead', !!entry.noHead, (val) => update('noHead', val, {
+            isEmpty: (v) => !v,
+            transform: () => true,
+        })));
+        wrap.appendChild(checkboxRow('reversed', !!entry.reversed, (val) => update('reversed', val, {
             isEmpty: (v) => !v,
             transform: () => true,
         })));
@@ -721,7 +727,7 @@ function renderNotesEditor(manager, key, entity, onDescription, onDetails, patch
     body.className = 'ce-notes-body';
     body.style.display = isOpen ? '' : 'none';
     body.appendChild(fieldRow('description', 'textarea', entity.description ?? '', onDescription));
-    body.appendChild(selectRow('details', detailsOptions(manager, entity.details), entity.details ?? '', onDetails, 'none'));
+    body.appendChild(selectRow('details', detailsOptions(manager, entity.details), entity.details ?? '', onDetails, '(none)'));
     for (const panel of panels) {
         body.appendChild(renderPanelEditor(manager, panel, entity[panel.property],
             (next) => patchProp(panel.property, next)));

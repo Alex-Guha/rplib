@@ -26,6 +26,12 @@
 // grid increments. Holding alt suspends snapping (draw.io-style free drag).
 // The grid is phase-shifted to the predecessor's position so its lines mark
 // exactly where the item can land — see grid.js.
+//
+// Drops keep defs minimal: a committed dimension that lands exactly on the
+// offset the layout would produce with no explicit x/y (the item's *natural*
+// offset, per position keyword + separation) commits as null, deleting the
+// entry instead of pinning the default as a literal. Each dimension is judged
+// independently, so dragging an item back onto its default row clears just y.
 
 import { componentEditState } from '../../utils/state.js';
 import { EDITING_VIEW, GRID_SIZE } from './constants.js';
@@ -64,13 +70,22 @@ export function snapDelta(session, dx, dy, gridSize = GRID_SIZE) {
     return { dx: snap(session.base.x, dx), dy: snap(session.base.y, dy) };
 }
 
+// The offset computeItemLayout would give `item` with no explicit x/y — its
+// position-keyword/separation default. Commits compare against this to decide
+// whether an explicit entry is still needed at all.
+function naturalOffset(item, prevLayout, defaults) {
+    const { x: _x, y: _y, ...bare } = item;
+    const layout = computeItemLayout(bare, prevLayout, defaults);
+    return { x: layout.x - (prevLayout?.x ?? 0), y: layout.y - (prevLayout?.y ?? 0) };
+}
+
 // Direct def-level children of any of `parentKeys` — the set a shift-drag
 // counter-offsets. Offsets are taken against each child's *resolved* previous
 // layout (for a native parent that's the parent itself; for a ref key the
 // parser resolved it to the unrolled group's tail). Children belonging to
 // imported groups have no def-level offset to compensate, so they aren't
 // collected and will follow the dragged element even in shift mode.
-function collectDefChildren(def, viewContent, layouts, prefix, parentKeys) {
+function collectDefChildren(def, viewContent, layouts, prefix, parentKeys, defaults) {
     const children = [];
     for (const [childKey, child] of Object.entries(def.content)) {
         if (child.component || !parentKeys.includes(child.previous)) continue;
@@ -84,6 +99,7 @@ function collectDefChildren(def, viewContent, layouts, prefix, parentKeys) {
             renderedId: childRenderedId,
             x: childLayout.x - prevLayout.x,
             y: childLayout.y - prevLayout.y,
+            natural: naturalOffset(childItem, prevLayout, defaults),
             // Authored offsets (resolved-view values are already numeric), so a
             // mid-drag shift release can restore them; null deletes the key.
             origX: childItem.x ?? null,
@@ -97,14 +113,16 @@ function collectDefChildren(def, viewContent, layouts, prefix, parentKeys) {
 // absolute position minus its predecessor's (the exact inverse of
 // computeItemLayout's `x = px + offset`), so items positioned purely by
 // `position` keywords drag without a first-move jump. Also reports the
-// predecessor's absolute position (`origin`) — the snap grid's anchor.
-function materializeBase(item, layout, layouts) {
+// predecessor's absolute position (`origin`) — the snap grid's anchor — and
+// the item's natural offset, the commit's clear-to-default reference.
+function materializeBase(item, layout, layouts, defaults) {
     const prevLayout = item.previous ? layouts[item.previous] : null;
     if (item.previous && !prevLayout) return null;
     const origin = { x: prevLayout?.x ?? 0, y: prevLayout?.y ?? 0 };
     return {
         base: { x: layout.x - origin.x, y: layout.y - origin.y },
         origin,
+        natural: naturalOffset(item, prevLayout, defaults),
     };
 }
 
@@ -125,7 +143,7 @@ export function buildDragSession(canvas, componentName, renderedId) {
     const item = viewContent[renderedId];
     const layout = layouts[renderedId];
     if (!item || !layout) return null;
-    const measured = materializeBase(item, layout, layouts);
+    const measured = materializeBase(item, layout, layouts, canvas.defaults);
     if (!measured) return null;
 
     return {
@@ -133,7 +151,7 @@ export function buildDragSession(canvas, componentName, renderedId) {
         key,
         renderedId,
         ...measured,
-        children: collectDefChildren(def, viewContent, layouts, prefix, [key]),
+        children: collectDefChildren(def, viewContent, layouts, prefix, [key], canvas.defaults),
     };
 }
 
@@ -170,7 +188,7 @@ export function buildImportedDragSession(canvas, componentName, renderedId) {
     const headItem = viewContent[headId];
     const headLayout = layouts[headId];
     if (!headItem || !headLayout) return null;
-    const headMeasured = materializeBase(headItem, headLayout, layouts);
+    const headMeasured = materializeBase(headItem, headLayout, layouts, canvas.defaults);
     if (!headMeasured) return null;
 
     const defKeys = Object.keys(def.content);
@@ -184,7 +202,7 @@ export function buildImportedDragSession(canvas, componentName, renderedId) {
         importedName,
         clickedId: renderedId,
         children: collectDefChildren(def, viewContent, layouts, prefix,
-            hasPoint ? [refKey, prevDefKey] : [refKey]),
+            hasPoint ? [refKey, prevDefKey] : [refKey], canvas.defaults),
     };
 
     if (hasPoint) {
@@ -192,7 +210,7 @@ export function buildImportedDragSession(canvas, componentName, renderedId) {
         const pointItem = viewContent[pointRenderedId];
         const pointLayout = layouts[pointRenderedId];
         if (!pointItem || !pointLayout) return null;
-        const pointMeasured = materializeBase(pointItem, pointLayout, layouts);
+        const pointMeasured = materializeBase(pointItem, pointLayout, layouts, canvas.defaults);
         if (!pointMeasured) return null;
         return { ...shared, mode: 'point', key: prevDefKey, renderedId: pointRenderedId, ...pointMeasured };
     }
@@ -212,22 +230,38 @@ export function buildImportedDragSession(canvas, componentName, renderedId) {
     };
 }
 
+// Round a committed offset, collapsing it to null — which deletes the def
+// entry — when it lands exactly on the item's natural (no-explicit-x/y)
+// offset. Dragging an item back to where the layout would put it anyway thus
+// clears the entry per dimension instead of pinning the default as a literal.
+export function commitOffset(value, natural) {
+    const rounded = Math.round(value);
+    return natural != null && rounded === Math.round(natural) ? null : rounded;
+}
+
 // Build the id → {x, y} patch map for one drag state.
 // - solo (shift): children get the inverse delta so their absolute positions
 //   hold still while the dragged element moves.
 // - preview without solo: children are reset to their authored offsets, so
 //   toggling shift mid-gesture doesn't strand them on compensated values.
-// - forCommit: keys are def content keys, values rounded, and untouched
-//   children are omitted entirely (the def never changed for them).
+// - forCommit: keys are def content keys, values rounded (or nulled when they
+//   match the natural offset — see commitOffset), and untouched children are
+//   omitted entirely (the def never changed for them).
 export function computeDragPatches(session, dx, dy, { solo = false, forCommit = false } = {}) {
-    const fmt = forCommit ? Math.round : (v) => v;
+    const fmt = forCommit ? (v, natural) => commitOffset(v, natural) : (v) => v;
     const keyOf = forCommit ? (entry) => entry.key : (entry) => entry.renderedId;
     const patches = {
-        [keyOf(session)]: { x: fmt(session.base.x + dx), y: fmt(session.base.y + dy) },
+        [keyOf(session)]: {
+            x: fmt(session.base.x + dx, session.natural?.x),
+            y: fmt(session.base.y + dy, session.natural?.y),
+        },
     };
     for (const child of session.children) {
         if (solo) {
-            patches[keyOf(child)] = { x: fmt(child.x - dx), y: fmt(child.y - dy) };
+            patches[keyOf(child)] = {
+                x: fmt(child.x - dx, child.natural?.x),
+                y: fmt(child.y - dy, child.natural?.y),
+            };
         } else if (!forCommit) {
             patches[keyOf(child)] = { x: child.origX, y: child.origY };
         }
@@ -385,7 +419,10 @@ function startGesture(manager, session, downEvent) {
             const childPatches = {};
             if (event.shiftKey) {
                 for (const child of session.children) {
-                    childPatches[child.key] = { x: Math.round(child.x - dx), y: Math.round(child.y - dy) };
+                    childPatches[child.key] = {
+                        x: commitOffset(child.x - dx, child.natural?.x),
+                        y: commitOffset(child.y - dy, child.natural?.y),
+                    };
                 }
             }
             insertItemBefore(manager, session.refKey, session.pointKey, buildPointItem(session, dx, dy), childPatches);
